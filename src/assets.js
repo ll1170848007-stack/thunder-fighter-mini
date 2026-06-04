@@ -18,10 +18,26 @@
 };
 
 const EXTRA_SPRITES = {
-  playerFrostSpear: "./assets/player_frost_spear_sprite.png",
-  playerCrimsonCannon: "./assets/player_crimson_cannon_sprite.png",
-  playerSolarWing: "./assets/player_solar_wing_sprite.png",
-  playerVoidPhantom: "./assets/player_void_phantom_sprite.png",
+  playerFrostSpear: "./assets/player_frost_spear_sprite.png?v=20260604-sprite-bullets",
+  playerCrimsonCannon: "./assets/player_crimson_cannon_sprite.png?v=20260604-sprite-bullets",
+  playerSolarWing: "./assets/player_solar_wing_sprite.png?v=20260604-sprite-bullets",
+  playerVoidPhantom: "./assets/player_void_phantom_sprite.png?v=20260604-sprite-bullets",
+  bulletFrostNeedle: "./assets/bullet_frost_needle.png?v=20260604-sprite-bullets",
+  bulletFrostShard: "./assets/bullet_frost_shard.png?v=20260604-sprite-bullets",
+  bulletFrostLock: "./assets/bullet_frost_lock.png?v=20260604-sprite-bullets",
+  bulletFrostBurst: "./assets/bullet_frost_burst.png?v=20260604-sprite-bullets",
+  bulletCrimsonShell: "./assets/bullet_crimson_shell.png?v=20260604-sprite-bullets",
+  bulletCrimsonRocket: "./assets/bullet_crimson_rocket.png?v=20260604-sprite-bullets",
+  bulletCrimsonOrb: "./assets/bullet_crimson_orb.png?v=20260604-sprite-bullets",
+  bulletCrimsonBeam: "./assets/bullet_crimson_beam.png?v=20260604-sprite-bullets",
+  bulletSolarFeather: "./assets/bullet_solar_feather.png?v=20260604-sprite-bullets",
+  bulletSolarWing: "./assets/bullet_solar_wing.png?v=20260604-sprite-bullets",
+  bulletSolarSpear: "./assets/bullet_solar_spear.png?v=20260604-sprite-bullets",
+  bulletSolarCrescent: "./assets/bullet_solar_crescent.png?v=20260604-sprite-bullets",
+  bulletVoidRift: "./assets/bullet_void_rift.png?v=20260604-sprite-bullets",
+  bulletVoidShard: "./assets/bullet_void_shard.png?v=20260604-sprite-bullets",
+  bulletVoidBlade: "./assets/bullet_void_blade.png?v=20260604-sprite-bullets",
+  bulletVoidPortal: "./assets/bullet_void_portal.png?v=20260604-sprite-bullets",
 };
 
 export class SpriteAtlas {

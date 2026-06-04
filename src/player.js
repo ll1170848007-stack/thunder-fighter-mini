@@ -1,7 +1,7 @@
-import { Bullet } from "./bullets.js?v=20260604-arcade-upgrade";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-arcade-upgrade";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-arcade-upgrade";
-import { clamp, distanceSq } from "./utils.js?v=20260604-arcade-upgrade";
+﻿import { Bullet } from "./bullets.js?v=20260604-sprite-bullets";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-sprite-bullets";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-sprite-bullets";
+import { clamp, distanceSq } from "./utils.js?v=20260604-sprite-bullets";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
@@ -130,7 +130,7 @@ export class Player {
     const offsets = this.power === 1 ? [0] : this.power === 2 ? [-10, 10] : [-16, 0, 16];
     const focusBoost = this.frostFocusTimer > 0 ? 1.35 : 1;
     for (const offset of offsets) {
-      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 30, offset * 1.5, -640, (this.power >= 4 ? 2 : 1.15) * focusBoost, "player", "#69f1ff", 4.5, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 30, offset * 1.5, -640, (this.power >= 4 ? 2 : 1.15) * focusBoost, "player", "#69f1ff", 4.5, false, "bulletFrostNeedle", 24, 92, {
         kind: "needle",
         homing: true,
         turnRate: 5.4 + this.power * 0.42 + (this.frostFocusTimer > 0 ? 2.2 : 0),
@@ -139,22 +139,23 @@ export class Player {
       }));
     }
     if (this.power >= 4) {
-      this.game.playerBullets.push(new Bullet(this.x - 26, this.y - 18, -68, -580, 1.25, "player", "#bff8ff", 4.2, false, null, null, null, { kind: "blade", pierce: 1 }));
-      this.game.playerBullets.push(new Bullet(this.x + 26, this.y - 18, 68, -580, 1.25, "player", "#bff8ff", 4.2, false, null, null, null, { kind: "blade", pierce: 1 }));
+      this.game.playerBullets.push(new Bullet(this.x - 26, this.y - 18, -68, -580, 1.25, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
+      this.game.playerBullets.push(new Bullet(this.x + 26, this.y - 18, 68, -580, 1.25, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
     }
   }
 
   fireCrimsonCannon() {
     const lanes = this.power >= 3 ? [-15, 15] : [0];
     for (const offset of lanes) {
-      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 22, offset * 0.35, -535, this.power >= 4 ? 1.7 : 1.15, "player", "#ff4b55", 4.8, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 22, offset * 0.35, -535, this.power >= 4 ? 1.7 : 1.15, "player", "#ff4b55", 4.8, false, "bulletCrimsonShell", 28, 78, {
         kind: "shell",
       }));
     }
     if (this.power >= 2 && this.fireCycle % 5 === 0) {
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -500, 1.7, "player", "#ffb02e", 5.8, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -500, 1.7, "player", "#ffb02e", 5.8, false, "bulletCrimsonOrb", 46, 46, {
         kind: "shell",
         explodeRadius: this.power >= 4 ? 46 : 34,
+        spriteRotation: false,
       }));
     }
   }
@@ -166,35 +167,45 @@ export class Player {
       const t = count === 1 ? 0 : i / (count - 1) - 0.5;
       const angle = -Math.PI / 2 + t * spread;
       const speed = 520 + this.power * 18;
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.9, "player", "#ffd86a", 4.6, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.9, "player", "#ffd86a", 4.6, false, "bulletSolarFeather", 26, 78, {
         kind: "blade",
         convergeX: this.x,
         convergeStrength: 0.9,
       }));
     }
+    if (this.power >= 4 && this.fireCycle % 6 === 0) {
+      this.game.playerBullets.push(new Bullet(this.x - 42, this.y - 16, -105, -500, 1.35, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 2 }));
+      this.game.playerBullets.push(new Bullet(this.x + 42, this.y - 16, 105, -500, 1.35, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 2 }));
+    }
   }
 
   fireVoidPhantom() {
-    this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -690, this.power >= 4 ? 4 : 2.8, "player", "#b56cff", this.power >= 3 ? 7 : 5.8, false, null, null, null, {
+    this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -690, this.power >= 4 ? 4 : 2.8, "player", "#b56cff", this.power >= 3 ? 7 : 5.8, false, "bulletVoidRift", 34, 94, {
       kind: "rift",
       dot: this.power >= 4 ? { damage: 0.85, duration: 1.2 } : null,
     }));
     if (this.power >= 2) {
       const splitCount = this.power >= 3 ? 3 : 2;
-      this.game.playerBullets.push(new Bullet(this.x - 18, this.y - 20, -54, -540, 1.35, "player", "#7d54ff", 4.9, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x - 18, this.y - 20, -54, -540, 1.35, "player", "#7d54ff", 4.9, false, "bulletVoidBlade", 30, 88, {
         kind: "rift",
         split: true,
         splitAt: 0.3,
         splitCount,
         splitDamage: 0.9,
+        splitSprite: "bulletVoidShard",
+        splitWidth: 30,
+        splitHeight: 62,
         dot: this.power >= 4 ? { damage: 0.5, duration: 1 } : null,
       }));
-      this.game.playerBullets.push(new Bullet(this.x + 18, this.y - 20, 54, -540, 1.35, "player", "#7d54ff", 4.9, false, null, null, null, {
+      this.game.playerBullets.push(new Bullet(this.x + 18, this.y - 20, 54, -540, 1.35, "player", "#7d54ff", 4.9, false, "bulletVoidBlade", 30, 88, {
         kind: "rift",
         split: true,
         splitAt: 0.3,
         splitCount,
         splitDamage: 0.9,
+        splitSprite: "bulletVoidShard",
+        splitWidth: 30,
+        splitHeight: 62,
         dot: this.power >= 4 ? { damage: 0.5, duration: 1 } : null,
       }));
     }
@@ -228,7 +239,7 @@ export class Player {
       this.game.toast("冰晶弱点聚焦", 1);
       shockwave(this.game, this.x, this.y - 22, 110, "#69f1ff", 0.36);
       for (let i = -2; i <= 2; i++) {
-        this.game.playerBullets.push(new Bullet(this.x + i * 8, this.y - 34, i * 46, -720, 3.2, "player", "#9df8ff", 4.2, false, null, null, null, {
+        this.game.playerBullets.push(new Bullet(this.x + i * 8, this.y - 34, i * 46, -720, 3.2, "player", "#9df8ff", 4.2, false, "bulletFrostNeedle", 24, 92, {
           kind: "needle",
           homing: true,
           turnRate: 9,
@@ -320,7 +331,10 @@ export class Player {
     this.crimsonHeat = Math.min(115, this.crimsonHeat + heatGain);
     if (this.crimsonHeat >= 100) this.crimsonOverheat = 2.2;
 
-    this.game.playerBullets.push(new Bullet(this.x, this.y - 34, 0, -500 - tier * 35, damage, "player", tier >= 4 ? "#fff3a8" : "#ff4b55", shotRadius, false, null, null, null, {
+    const sprite = tier >= 4 ? "bulletCrimsonBeam" : tier >= 3 ? "bulletCrimsonRocket" : "bulletCrimsonShell";
+    const spriteWidth = tier >= 4 ? 46 : tier >= 3 ? 44 : 30;
+    const spriteHeight = tier >= 4 ? 146 : tier >= 3 ? 112 : 86;
+    this.game.playerBullets.push(new Bullet(this.x, this.y - 34, 0, -500 - tier * 35, damage, "player", tier >= 4 ? "#fff3a8" : "#ff4b55", shotRadius, false, sprite, spriteWidth, spriteHeight, {
       kind: "shell",
       explodeRadius: radius,
       pierce: tier >= 3 ? 1 : 0,
@@ -442,12 +456,15 @@ export class Player {
       if (shadow.tick <= 0) {
         shadow.tick = 0.16;
         const closeBonus = this.nearEnemy(72) ? 1.35 : 1;
-        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, 2.2 * closeBonus, "player", "#b56cff", 5.6, false, null, null, null, {
+        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, 2.2 * closeBonus, "player", "#b56cff", 5.6, false, "bulletVoidRift", 34, 94, {
           kind: "rift",
           split: true,
           splitAt: 0.25,
           splitCount: this.power >= 3 ? 3 : 2,
           splitDamage: 0.95 * closeBonus,
+          splitSprite: "bulletVoidShard",
+          splitWidth: 30,
+          splitHeight: 62,
           dot: { damage: 0.65, duration: 1.1 },
           lifeTime: 1.25,
         }));
@@ -587,6 +604,14 @@ export class Player {
       ctx.save();
       ctx.translate(blade.x, blade.y);
       ctx.rotate(blade.angle + Math.PI / 2);
+      const usedSprite = this.game.assets.draw(ctx, "bulletSolarFeather", 0, 0, mode === "spread" ? 28 : 24, mode === "spread" ? 84 : 68, {
+        shadowColor: "#ffd86a",
+        shadowBlur: mode === "spread" ? 22 : 15,
+      });
+      if (usedSprite) {
+        ctx.restore();
+        continue;
+      }
       ctx.shadowColor = "#ffd86a";
       ctx.shadowBlur = mode === "spread" ? 22 : 15;
       ctx.fillStyle = mode === "recall" ? "#fff3a8" : "#ffd86a";

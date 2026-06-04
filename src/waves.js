@@ -1,4 +1,4 @@
-export const STAGE_WAVES = [
+﻿export const STAGE_WAVES = [
   [
     { delay: 0.6, type: "scout", count: 3, interval: 0.44, formation: "line", message: "侦察编队接近" },
     { delay: 0.9, type: ["scout", "weaver"], count: 5, interval: 0.4, formation: "cross", message: "左右交叉穿插" },

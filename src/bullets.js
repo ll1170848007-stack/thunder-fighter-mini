@@ -26,8 +26,13 @@
     this.splitCount = options.splitCount ?? 3;
     this.splitSpeed = options.splitSpeed ?? 430;
     this.splitDamage = options.splitDamage ?? 1;
+    this.splitSprite = options.splitSprite ?? null;
+    this.splitWidth = options.splitWidth ?? null;
+    this.splitHeight = options.splitHeight ?? null;
     this.splitDone = false;
     this.lifeTime = options.lifeTime ?? 4;
+    this.spriteRotation = options.spriteRotation ?? true;
+    this.spriteAlpha = options.spriteAlpha ?? 1;
     this.age = 0;
     this.dead = false;
   }
@@ -89,26 +94,39 @@
         this.color,
         Math.max(3.2, this.radius * 0.68),
         false,
-        null,
-        null,
-        null,
+        this.splitSprite,
+        this.splitWidth,
+        this.splitHeight,
         { kind: "riftShard", lifeTime: 1.6, dot: this.dot },
       ));
     }
     this.dead = true;
   }
 
-  draw(ctx) {
-    if (this.owner === "player") this.drawPlayerShot(ctx);
+  draw(ctx, assets) {
+    if (this.owner === "player") this.drawPlayerShot(ctx, assets);
     else this.drawEnemyOrb(ctx);
   }
 
-  drawPlayerShot(ctx) {
+  drawPlayerShot(ctx, assets) {
+    if (this.sprite && assets?.draw && this.drawSpriteShot(ctx, assets)) return;
     if (this.kind === "blade") return this.drawBlade(ctx);
     if (this.kind === "shell") return this.drawShell(ctx);
     if (this.kind === "rift" || this.kind === "riftShard") return this.drawRift(ctx);
     if (this.kind === "needle") return this.drawNeedle(ctx);
     return this.drawBolt(ctx);
+  }
+
+  drawSpriteShot(ctx, assets) {
+    const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+    const width = this.width ?? this.radius * 8;
+    const height = this.height ?? this.radius * 18;
+    return assets.draw(ctx, this.sprite, this.x, this.y, width, height, {
+      shadowColor: this.color,
+      shadowBlur: Math.max(16, this.radius * 3.2),
+      rotation: this.spriteRotation ? angle : 0,
+      alpha: this.spriteAlpha,
+    });
   }
 
   drawBolt(ctx) {

@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260604-arcade-upgrade";
-import { clamp, distanceSq } from "./utils.js?v=20260604-arcade-upgrade";
+﻿import { Bullet } from "./bullets.js?v=20260604-sprite-bullets";
+import { clamp, distanceSq } from "./utils.js?v=20260604-sprite-bullets";
 
 export class Boss {
   constructor(game, stage) {

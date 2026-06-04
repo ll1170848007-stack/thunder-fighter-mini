@@ -33,9 +33,9 @@ http://localhost:8088
 
 ## 已实现内容
 
-- 四架正式机身素材已裁剪并接入战斗与选机界面。
+- 四架正式机身素材已更新并接入战斗与选机界面。
 - 玩家受击判定为中心小核心点，机翼擦弹不会直接受伤。
-- 玩家子弹为光梭、重炮、羽刃、裂隙等形态；敌弹保持圆形，便于躲避。
+- 玩家子弹已接入四套专属 PNG 素材：Frost 冰梭、Crimson 重炮、Solar 金羽、Void 裂隙；敌弹保持圆形，便于躲避。
 - 三关波次推进，每关 12 个 wave，第 4 波精英小队，第 8 波 mini boss，第 12 波后触发 Boss WARNING。
 - 每关一个独立机制 Boss：第一关左右炮台减伤，第二关护盾核心，第三关幻影复制弹幕与安全区激光。
 - 每关 Boss 击败后会弹出三选一强化卡，强化会保留到本局结束。
@@ -58,6 +58,10 @@ thunder-fighter-mini/
 │  ├─ player_crimson_cannon_sprite.png
 │  ├─ player_solar_wing_sprite.png
 │  ├─ player_void_phantom_sprite.png
+│  ├─ bullet_frost_*.png
+│  ├─ bullet_crimson_*.png
+│  ├─ bullet_solar_*.png
+│  ├─ bullet_void_*.png
 │  └─ neon-sprite-atlas.png
 ├─ styles/
 │  └─ style.css

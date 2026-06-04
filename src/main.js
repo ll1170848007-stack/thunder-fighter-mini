@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260604-arcade-upgrade";
+﻿import { Game } from "./game.js?v=20260604-sprite-bullets";
 
 document.body.dataset.appReady = "booting";
 

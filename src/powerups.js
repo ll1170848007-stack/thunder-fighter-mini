@@ -1,4 +1,4 @@
-﻿import { rand } from "./utils.js?v=20260604-arcade-upgrade";
+﻿import { rand } from "./utils.js?v=20260604-sprite-bullets";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },
