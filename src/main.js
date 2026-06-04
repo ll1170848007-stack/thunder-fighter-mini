@@ -1,4 +1,4 @@
-import { Game } from "./game.js?v=20260605-essence-scroll-fix";
+import { Game } from "./game.js?v=20260605-logic-safety-fix";
 
 document.body.dataset.appReady = "booting";
 

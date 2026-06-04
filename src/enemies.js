@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-essence-scroll-fix";
+import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-logic-safety-fix";
 
 const TYPES = {
   scout: { hp: 3, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScoutSprite", size: 62, pattern: "drift", minY: 72, maxY: 150 },
@@ -29,8 +29,8 @@ export class Enemy {
     this.targetY = rand(spec.minY, spec.maxY);
     this.vx = rand(-spec.speed, spec.speed) || spec.speed;
     this.vy = spec.speed + scale * 2.2;
-    const earlyRelief = this.game.time < 60 ? 0.55 : this.game.time < 150 ? 0.75 : 1;
-    const stageRelief = this.game.time < 150 ? Math.min(this.game.stageIndex * 0.06, 0.12) : this.game.stageIndex * 0.12;
+    const earlyRelief = this.game.stageTime < 60 ? 0.55 : this.game.stageTime < 150 ? 0.75 : 1;
+    const stageRelief = this.game.stageTime < 150 ? Math.min(this.game.stageIndex * 0.06, 0.12) : this.game.stageIndex * 0.12;
     this.hp = Math.max(1, Math.ceil(spec.hp * earlyRelief * (1 + scale * 0.075 + stageRelief)));
     this.maxHp = this.hp;
     this.score = spec.score;
@@ -112,7 +112,7 @@ export class Enemy {
 
   nextFireDelay() {
     const d = this.game.difficultyScale();
-    const earlySlow = this.game.time < 90 ? 1.65 : this.game.time < 150 ? 1.28 : 1;
+    const earlySlow = this.game.stageTime < 90 ? 1.65 : this.game.stageTime < 150 ? 1.28 : 1;
     if (this.type === "miniBoss") return Math.max(1.05, 1.55 - d * 0.035) * earlySlow;
     if (this.type === "elite") return (1.95 / (1 + d * 0.03)) * earlySlow;
     if (this.type === "laser") return (3.35 / (1 + d * 0.025)) * earlySlow;
@@ -219,10 +219,10 @@ export class Enemy {
       return;
     }
     const angle = this.angleToPlayer();
-    const speed = (this.type === "elite" ? 120 : 106) * (this.game.time < 90 ? 0.85 : 1);
+    const speed = (this.type === "elite" ? 120 : 106) * (this.game.stageTime < 90 ? 0.85 : 1);
     this.fireAtAngle(angle, speed, "#d84a38", 4.6);
     if (this.type === "elite" || this.type === "striker") {
-      if (this.game.time >= 90 || this.type === "elite") for (const offset of [-0.42, 0.42]) this.fireAtAngle(angle + offset, 98, "#b54b68", 4.0);
+      if (this.game.stageTime >= 90 || this.type === "elite") for (const offset of [-0.42, 0.42]) this.fireAtAngle(angle + offset, 98, "#b54b68", 4.0);
     }
   }
 
@@ -383,10 +383,10 @@ export class Enemy {
 export function chooseEnemyType(game) {
   const d = game.difficultyScale();
   const roll = Math.random();
-  if (game.time < 60) return roll < 0.35 && game.time > 28 ? "weaver" : "scout";
-  if (game.time < 120) return roll < 0.58 ? "scout" : roll < 0.82 ? "weaver" : "striker";
-  if (game.time < 180) return roll < 0.42 ? "scout" : roll < 0.62 ? "weaver" : roll < 0.84 ? "striker" : roll < 0.94 ? "sentry" : "bomber";
-  if (game.time < 300) return roll < 0.22 ? "scout" : roll < 0.42 ? "weaver" : roll < 0.64 ? "striker" : roll < 0.78 ? "sentry" : roll < 0.88 ? "bomber" : roll < 0.94 ? "laser" : "mineLayer";
+  if (game.stageTime < 60) return roll < 0.35 && game.stageTime > 28 ? "weaver" : "scout";
+  if (game.stageTime < 120) return roll < 0.58 ? "scout" : roll < 0.82 ? "weaver" : "striker";
+  if (game.stageTime < 180) return roll < 0.42 ? "scout" : roll < 0.62 ? "weaver" : roll < 0.84 ? "striker" : roll < 0.94 ? "sentry" : "bomber";
+  if (game.stageTime < 300) return roll < 0.22 ? "scout" : roll < 0.42 ? "weaver" : roll < 0.64 ? "striker" : roll < 0.78 ? "sentry" : roll < 0.88 ? "bomber" : roll < 0.94 ? "laser" : "mineLayer";
   if (game.stageIndex >= 2 && roll < 0.08) return "healer";
   if (game.stageIndex >= 2 && roll < 0.15) return "summoner";
   if (game.stageIndex >= 2 && roll < 0.23) return "shield";

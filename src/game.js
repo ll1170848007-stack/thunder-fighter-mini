@@ -1,18 +1,18 @@
-import { AudioSystem } from "./audio.js?v=20260605-essence-scroll-fix";
-import { SpriteAtlas } from "./assets.js?v=20260605-essence-scroll-fix";
-import { Boss } from "./boss.js?v=20260605-essence-scroll-fix";
-import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
-import { Enemy } from "./enemies.js?v=20260605-essence-scroll-fix";
-import { Essence } from "./essence.js?v=20260605-essence-scroll-fix";
-import { Input } from "./input.js?v=20260605-essence-scroll-fix";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-essence-scroll-fix";
-import { Player } from "./player.js?v=20260605-essence-scroll-fix";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-essence-scroll-fix";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-essence-scroll-fix";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-essence-scroll-fix";
-import { getStageWaves } from "./waves.js?v=20260605-essence-scroll-fix";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-essence-scroll-fix";
-import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-essence-scroll-fix";
+import { AudioSystem } from "./audio.js?v=20260605-logic-safety-fix";
+import { SpriteAtlas } from "./assets.js?v=20260605-logic-safety-fix";
+import { Boss } from "./boss.js?v=20260605-logic-safety-fix";
+import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
+import { Enemy } from "./enemies.js?v=20260605-logic-safety-fix";
+import { Essence } from "./essence.js?v=20260605-logic-safety-fix";
+import { Input } from "./input.js?v=20260605-logic-safety-fix";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-logic-safety-fix";
+import { Player } from "./player.js?v=20260605-logic-safety-fix";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-logic-safety-fix";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-logic-safety-fix";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-logic-safety-fix";
+import { getStageWaves } from "./waves.js?v=20260605-logic-safety-fix";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-logic-safety-fix";
+import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-logic-safety-fix";
 
 const MAX_ESSENCES = 220;
 
@@ -186,7 +186,9 @@ export class Game {
       bulletDevourChance: 0,
       critBurstChance: 0,
       wingmanPickupBonus: 0,
+      wingmanEssenceBonus: 0,
       globalMagnetTimer: 0,
+      globalMagnetActiveTimer: 0,
       frostComboTimeBonus: 0,
       frostExtraJumps: 0,
       frostExplosionRadiusBonus: 0,
@@ -227,6 +229,7 @@ export class Game {
     this.handleKeys();
     if (this.state === "playing") this.update(dt);
     if (this.state === "transition") this.updateTransition(dt);
+    if (this.state === "boss_reward") this.updateBossReward(dt);
     this.syncDebugState();
     this.draw();
     requestAnimationFrame((t) => this.loop(t));
@@ -298,14 +301,18 @@ export class Game {
   }
 
   enemyBulletLimit() {
-    if (this.time < 60) return 12;
-    if (this.time < 120) return 24;
-    if (this.time < 240) return 38;
-    return Math.min(58, 38 + Math.floor((this.time - 240) / 28));
+    if (this.stageTime < 60) return 12;
+    if (this.stageTime < 120) return 24;
+    if (this.stageTime < 240) return 38;
+    return Math.min(58, 38 + Math.floor((this.stageTime - 240) / 28));
   }
 
   essenceScrollSpeed() {
     return 54 + Math.min(24, this.difficultyScale() * 3.2);
+  }
+
+  globalEssenceMagnetBonus() {
+    return (this.upgrades?.globalMagnetActiveTimer ?? 0) > 0 ? 999 : 0;
   }
 
   canSpawnEnemyBullet(priority = 0) {
@@ -316,12 +323,12 @@ export class Game {
 
   updateSurvivorAssists(dt) {
     if (!this.player) return;
-    if (!this.earlyAssist35 && this.time >= 35 && this.playerLevel < 2) {
+    if (!this.earlyAssist35 && this.stageTime >= 35 && this.playerLevel < 2) {
       this.earlyAssist35 = true;
       for (let i = 0; i < 3; i++) this.spawnEssence("blue", this.player.x + rand(-24, 24), this.player.y - 72 + rand(-12, 12));
       this.toast("补给精华已投放", 1);
     }
-    if (!this.earlyAssist75 && this.time >= 75 && this.playerLevel < 3) {
+    if (!this.earlyAssist75 && this.stageTime >= 75 && this.playerLevel < 3) {
       this.earlyAssist75 = true;
       this.spawnEssence("purple", this.player.x, this.player.y - 86);
       this.toast("紫色精华已投放", 1);
@@ -336,10 +343,9 @@ export class Game {
     }
     if (this.upgrades.globalMagnetTimer != null && this.upgrades.globalMagnetTimer > 0) {
       this.upgrades.globalMagnetTimer -= dt;
+      this.upgrades.globalMagnetActiveTimer = Math.max(0, this.upgrades.globalMagnetActiveTimer - dt);
       if (this.upgrades.globalMagnetTimer <= 0) {
-        for (const essence of this.essences) essence.magnetized = true;
-        this.upgrades.essenceMagnetBonus += 999;
-        window.setTimeout(() => { if (this.upgrades) this.upgrades.essenceMagnetBonus = Math.max(0, this.upgrades.essenceMagnetBonus - 999); }, 1200);
+        this.upgrades.globalMagnetActiveTimer = 1.2;
         this.upgrades.globalMagnetTimer = 35;
         this.toast("无限吸附", 0.8);
       }
@@ -384,16 +390,16 @@ export class Game {
     const waves = getStageWaves(this.stageIndex);
     if (!this.activeWave && this.waveIndex >= waves.length) {
       const minBossTime = [150, 170, 190][this.stageIndex] ?? 150;
-      if (!this.fastMode && this.time < minBossTime) {
+      if (!this.fastMode && this.stageTime < minBossTime) {
         this.bossWaitSpawnTimer -= dt;
         if (this.bossWaitSpawnTimer <= 0 && this.enemies.length < Math.min(8, this.currentStage().maxEnemies)) {
-          const type = this.time < 60 ? "scout" : this.time < 120 ? (chance(0.68) ? "scout" : "weaver") : chance(0.72) ? "weaver" : "striker";
+          const type = this.stageTime < 60 ? "scout" : this.stageTime < 120 ? (chance(0.68) ? "scout" : "weaver") : chance(0.72) ? "weaver" : "striker";
           const pos = this.wavePosition("line", Math.floor(rand(0, 4)), 4);
           const enemy = new Enemy(this, type, pos.x, pos.y);
           enemy.targetY = pos.targetY;
           enemy.anchorX = pos.x;
           this.enemies.push(enemy);
-          this.bossWaitSpawnTimer = this.time < 60 ? 0.82 : 0.68;
+          this.bossWaitSpawnTimer = this.stageTime < 60 ? 0.82 : 0.68;
         }
         return;
       }
@@ -440,20 +446,19 @@ export class Game {
   }
 
   allowedEnemyType(type) {
-    const t = this.time;
-    if (this.stageIndex === 0 && t < 60) {
+    const t = this.stageTime;
+    if (t < 60) {
       if (type === "weaver" && t >= 28) return "weaver";
       return "scout";
     }
-    if (this.stageIndex === 0 && t < 120) {
+    if (t < 120) {
       if (["scout", "weaver", "striker"].includes(type)) return type;
       return type === "miniBoss" ? "striker" : "weaver";
     }
-    if (this.stageIndex === 0 && t < 180) {
+    if (t < 180) {
       if (["scout", "weaver", "striker", "sentry", "bomber"].includes(type)) return type;
       return "striker";
     }
-    if (t < 180 && ["laser", "mineLayer", "shield", "healer", "summoner", "elite", "miniBoss"].includes(type)) return this.stageIndex === 0 ? "striker" : "weaver";
     if (t < 300 && ["shield", "healer", "summoner"].includes(type)) return "striker";
     return type;
   }
@@ -491,8 +496,8 @@ export class Game {
 
   beginBossWarning() {
     const minTime = [150, 170, 190][this.stageIndex] ?? 150;
-    if (!this.fastMode && this.time < minTime) {
-      this.waveCompleteTimer = Math.max(this.waveCompleteTimer ?? 0, minTime - this.time);
+    if (!this.fastMode && this.stageTime < minTime) {
+      this.waveCompleteTimer = Math.max(this.waveCompleteTimer ?? 0, minTime - this.stageTime);
       return;
     }
     this.bossSeen = true;
@@ -592,7 +597,7 @@ export class Game {
         this.playerBullets.push(new Bullet(bullet.x, bullet.y, Math.cos(angle) * 430, Math.sin(angle) * 430, Math.max(0.6, damage * 0.26), "player", bullet.color, 3.8, false, null, null, null, { lifeTime: 1.1 }));
       }
     }
-    if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
+    if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target, true, bullet.source === "wingman" ? "wingman" : "player");
   }
 
   applyDestructibleBulletHit(playerBullet, enemyBullet) {
@@ -661,7 +666,7 @@ export class Game {
       const dy = enemy.y - bullet.y;
       if (dx * dx + dy * dy <= radiusSq) {
         enemy.hit(Math.max(1, baseDamage * 0.55), bullet);
-        if (enemy.dead) this.killEnemy(enemy);
+        if (enemy.dead) this.killEnemy(enemy, true, bullet.source === "wingman" ? "wingman" : "player");
       }
     }
     if (this.boss && this.boss !== primaryTarget) {
@@ -675,7 +680,9 @@ export class Game {
     return { x: this.player.x, y: this.player.y, radius: this.player.hitRadius };
   }
 
-  killEnemy(enemy, score = true) {
+  killEnemy(enemy, score = true, source = "player") {
+    if (enemy.killHandled) return;
+    enemy.killHandled = true;
     burst(this, enemy.x, enemy.y, enemy.color, enemy.type === "elite" ? 28 : 18, 150);
     debris(this, enemy.x, enemy.y, "#d7e4ff", enemy.type === "elite" ? 12 : 7, 125);
     shockwave(this, enemy.x, enemy.y, enemy.type === "elite" ? 66 : 48, enemy.color, 0.32);
@@ -687,17 +694,18 @@ export class Game {
       this.stageScore += enemy.score;
       this.player?.onEnemyKilled(enemy);
     }
-    this.dropEssences(enemy);
-    if ((this.upgrades?.killBurstLevel ?? 0) > 0) {
+    if (score) this.dropEssences(enemy, source);
+    if (score && (this.upgrades?.killBurstLevel ?? 0) > 0) {
       shockwave(this, enemy.x, enemy.y, 42 + this.upgrades.killBurstLevel * 12, "#fff3a8", 0.18);
       for (const target of this.enemies) {
         if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 36 + this.upgrades.killBurstLevel * 12 })) {
           target.hit(0.8 + this.upgrades.killBurstLevel * 0.45);
+          if (target.dead) this.killEnemy(target, true, "killBurst");
         }
       }
     }
     const dropChance = enemy.type === "miniBoss" ? 0.28 : enemy.type === "elite" ? 0.16 : 0.055;
-    if (chance(dropChance)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
+    if (score && chance(dropChance)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
   }
 
   spawnEssence(type, x, y) {
@@ -705,57 +713,62 @@ export class Game {
     this.essences.push(new Essence(this, type, x, y));
   }
 
-  dropEssences(enemy) {
+  dropEssences(enemy, source = "player") {
     const scatter = (type, count) => {
       for (let i = 0; i < count; i++) this.spawnEssence(type, enemy.x, enemy.y);
     };
     const solarStormBonus = () => {
       if (this.player?.ship.id === "solar" && this.upgrades?.solarStorm && chance(0.28)) scatter("blue", 1);
     };
-    const early = this.time < 60;
-    const mid = this.time >= 60 && this.time < 150;
+    const extraBonuses = () => {
+      if (chance(this.upgrades?.essenceDropBonus ?? 0)) scatter("blue", 1);
+      if (source === "wingman" && chance(this.upgrades?.wingmanEssenceBonus ?? 0)) scatter("blue", 1);
+      if (source === "bomb" && chance(this.upgrades?.bombEssenceBonus ?? 0)) scatter("blue", 1);
+      solarStormBonus();
+    };
+    const early = this.stageTime < 60;
+    const mid = this.stageTime >= 60 && this.stageTime < 150;
     if (early && enemy.type === "scout") {
       this.scoutEssenceCounter += 1;
       scatter("blue", this.scoutEssenceCounter % 5 === 0 ? 2 : 1);
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (early && enemy.type === "weaver") {
       scatter("blue", 1);
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (mid && (enemy.type === "striker" || enemy.type === "sentry")) {
       scatter("blue", 2);
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (enemy.type === "miniBoss") {
       scatter("purple", 3 + Math.floor(Math.random() * 2));
       scatter("red", 1);
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (enemy.type === "elite") {
       scatter("purple", 1);
       scatter("blue", 1 + Math.floor(Math.random() * 2));
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (enemy.type === "bulwark" || enemy.type === "shield") {
       scatter("blue", 2 + Math.floor(Math.random() * 2));
       if (chance(0.35)) scatter("purple", 1);
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     if (enemy.type === "striker" || enemy.type === "sentry" || enemy.type === "laser" || enemy.type === "mineLayer" || enemy.type === "summoner" || enemy.type === "healer") {
       scatter("blue", 1 + Math.floor(Math.random() * 2));
-      solarStormBonus();
+      extraBonuses();
       return;
     }
     scatter("blue", 1);
-    if (chance(this.upgrades?.essenceDropBonus ?? 0)) scatter("blue", 1);
-    solarStormBonus();
+    extraBonuses();
   }
 
   gainXp(amount, essenceType = "blue", options = {}) {
@@ -784,17 +797,46 @@ export class Game {
   }
 
   killBoss() {
-    burst(this, this.boss.x, this.boss.y, "#ff4fa3", 90, 260);
-    burst(this, this.boss.x, this.boss.y + 20, "#69f1ff", 70, 210);
-    shockwave(this, this.boss.x, this.boss.y, 190, "#ff4fa3", 0.62);
+    const bossX = this.boss.x;
+    const bossY = this.boss.y;
+    burst(this, bossX, bossY, "#ff4fa3", 90, 260);
+    burst(this, bossX, bossY + 20, "#69f1ff", 70, 210);
+    shockwave(this, bossX, bossY, 190, "#ff4fa3", 0.62);
     this.shake = Math.max(this.shake, 0.48);
     this.audio.explosion();
     this.score += this.currentStage().bossScore;
     this.gainXp(60, "red", { deferLevelUp: true });
+    this.spawnBossRewardFeedback(bossX, bossY);
     this.toast("Boss 红精华 +60 XP", 1.1);
     this.boss = null;
-    if (this.stageIndex >= STAGES.length - 1) {
-      this.victoryTimer = 2.2;
+    this.state = "boss_reward";
+    this.bossRewardTimer = 1.05;
+    this.bossRewardVictory = this.stageIndex >= STAGES.length - 1;
+  }
+
+  spawnBossRewardFeedback(x, y) {
+    const targetX = this.player?.x ?? this.width / 2;
+    const targetY = this.player?.y ?? this.height - 92;
+    for (let i = 0; i < 22; i++) {
+      const sx = x + rand(-48, 48);
+      const sy = y + rand(-28, 34);
+      const travel = rand(0.72, 1.05);
+      this.particles.push(new Particle(sx, sy, (targetX - sx) / travel, (targetY - sy) / travel, travel, i % 3 === 0 ? "#fff0c4" : "#ff4b55", rand(3, 6)));
+    }
+    shockwave(this, targetX, targetY, 78, "#ff4b55", 0.42);
+  }
+
+  updateBossReward(dt) {
+    this.time += dt;
+    this.stageTime += dt;
+    this.updateStars(dt);
+    this.toastTimer = Math.max(0, this.toastTimer - dt);
+    this.updateList(this.particles, dt);
+    this.bossRewardTimer -= dt;
+    if (this.bossRewardTimer > 0) return;
+    if (this.bossRewardVictory) {
+      this.victoryTimer = 0.01;
+      this.state = "playing";
     } else {
       this.showLevelUpCards(true);
     }
@@ -878,8 +920,27 @@ export class Game {
     if (this.pendingLevelUps > 0) {
       this.showLevelUpCards(false);
     } else {
+      this.grantLevelUpSafety();
       this.state = "playing";
     }
+  }
+
+  grantLevelUpSafety() {
+    if (!this.player) return;
+    this.player.invincible = Math.max(this.player.invincible, 0.8);
+    const safeRadius = 132;
+    for (const bullet of this.enemyBullets) {
+      const dx = bullet.x - this.player.x;
+      const dy = bullet.y - this.player.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < safeRadius * safeRadius) {
+        bullet.dead = true;
+      } else if (distSq < (safeRadius + 72) * (safeRadius + 72)) {
+        bullet.vx *= 0.55;
+        bullet.vy *= 0.55;
+      }
+    }
+    shockwave(this, this.player.x, this.player.y, safeRadius, "#69f1ff", 0.16);
   }
 
   beginStageTransition() {
@@ -912,6 +973,9 @@ export class Game {
     this.stageIndex += 1;
     this.stageTime = 0;
     this.stageScore = 0;
+    this.earlyAssist35 = false;
+    this.earlyAssist75 = false;
+    this.bossWaitSpawnTimer = 0;
     this.bossSeen = false;
     this.bossWarning = 0;
     this.resetWaveState();
@@ -942,8 +1006,10 @@ export class Game {
   clearScreen() {
     const bombDamage = 999 * (this.upgrades?.bombDamageMultiplier ?? 1);
     for (const enemy of this.enemies) {
+      if (enemy.dead || enemy.killHandled) continue;
+      const wasAlive = !enemy.dead;
       enemy.hit(bombDamage);
-      this.killEnemy(enemy, true);
+      if (wasAlive && enemy.dead) this.killEnemy(enemy, true, "bomb");
     }
     this.enemyBullets = [];
     if (this.boss) this.boss.hit(45 * (this.upgrades?.bombDamageMultiplier ?? 1));

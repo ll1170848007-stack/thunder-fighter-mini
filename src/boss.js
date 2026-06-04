@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
-import { clamp, distanceSq } from "./utils.js?v=20260605-essence-scroll-fix";
+import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
+import { clamp, distanceSq } from "./utils.js?v=20260605-logic-safety-fix";
 
 export class Boss {
   constructor(game, stage) {

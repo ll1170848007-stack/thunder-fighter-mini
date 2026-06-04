@@ -9,6 +9,12 @@ const addWingman = (game, type = wingTypes[Math.floor(Math.random() * wingTypes.
 const boost = (game, key, amount) => { game.upgrades[key] = (game.upgrades[key] ?? 0) + amount; };
 const mult = (game, key, amount) => { game.upgrades[key] = (game.upgrades[key] ?? 1) * amount; };
 
+const FALLBACK_CARDS = [
+  { id: "fallback_attack", title: "应急火力", desc: "兜底强化：所有玩家伤害 +6%。", rarity: "blue", tags: ["damage"], maxStacks: 99, apply: (game) => mult(game, "attackMultiplier", 1.06) },
+  { id: "fallback_pickup", title: "应急回收", desc: "兜底强化：拾取范围 +12%。", rarity: "blue", tags: ["pickup"], maxStacks: 99, apply: (game) => { game.upgrades.pickupRadius = Math.min(128, game.upgrades.pickupRadius * 1.12); } },
+  { id: "fallback_repair", title: "应急护盾", desc: "兜底强化：获得短护盾。", rarity: "blue", tags: ["survival", "shield"], maxStacks: 99, apply: (game) => { game.player.shield = Math.max(game.player.shield, 2.5 + (game.upgrades.shieldBonus ?? 0)); } },
+];
+
 export const UPGRADE_CARDS = [
   { id: "attack_8", title: "火力校准", desc: "所有玩家伤害 +8%。", rarity: "blue", tags: ["damage"], maxStacks: 10, starter: true, apply: (game) => mult(game, "attackMultiplier", 1.08) },
   { id: "fire_rate_7", title: "轻量弹闸", desc: "自动射击间隔 -7%。", rarity: "blue", tags: ["fireRate"], maxStacks: 8, apply: (game) => mult(game, "fireRateMultiplier", 0.93) },
@@ -156,6 +162,16 @@ function pickFrom(pool, chosen, predicate = () => true) {
   return card;
 }
 
+function fillWithFallbacks(chosen) {
+  let guard = 0;
+  while (chosen.length < 3 && guard < FALLBACK_CARDS.length * 2) {
+    const card = FALLBACK_CARDS[guard % FALLBACK_CARDS.length];
+    if (!chosen.some((item) => item.id === card.id)) chosen.push(card);
+    guard += 1;
+  }
+  return chosen.slice(0, 3);
+}
+
 export function chooseStarterCards(game) {
   const chosen = [];
   const pool = buildEligible(game, { starter: true });
@@ -165,7 +181,7 @@ export function chooseStarterCards(game) {
   while (chosen.length < 3) {
     if (!pickFrom(pool, chosen)) break;
   }
-  return chosen.slice(0, 3);
+  return fillWithFallbacks(chosen);
 }
 
 export function chooseUpgradeCards(game, { bossReward = false } = {}) {
@@ -173,10 +189,12 @@ export function chooseUpgradeCards(game, { bossReward = false } = {}) {
   const pool = buildEligible(game, { bossReward });
   const shipId = game.shipConfig?.id;
   const currentLevel = game.playerLevel ?? 1;
+  let safety = 0;
 
   const firstRarity = rarityForLevel(currentLevel, bossReward);
   pickFrom(pool, chosen, (card) => card.ship === shipId && (bossReward ? card.rarity !== "blue" : card.rarity === firstRarity));
-  while (chosen.length < 3) {
+  while (chosen.length < 3 && safety < 12) {
+    safety += 1;
     const rarity = rarityForLevel(currentLevel, bossReward);
     pickFrom(pool, chosen, (card) => card.rarity === rarity) ||
       pickFrom(pool, chosen, (card) => bossReward || card.rarity !== "red") ||
@@ -186,5 +204,5 @@ export function chooseUpgradeCards(game, { bossReward = false } = {}) {
     const replacement = pool.find((card) => !chosen.includes(card) && card.rarity === "purple");
     if (replacement) chosen[0] = replacement;
   }
-  return chosen.slice(0, 3);
+  return fillWithFallbacks(chosen);
 }

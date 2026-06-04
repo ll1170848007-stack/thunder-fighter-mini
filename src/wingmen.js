@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
-import { Particle, hitSpark } from "./particles.js?v=20260605-essence-scroll-fix";
+import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
+import { Particle, hitSpark } from "./particles.js?v=20260605-logic-safety-fix";
 
 export const WINGMAN_INFO = {
   attack: {
@@ -64,10 +64,10 @@ export class Wingman {
     if (this.fireTimer > 0) return;
     const spread = this.level >= 2 ? 42 : 18;
     const damage = this.game.upgrades?.wingmanDamageMultiplier ?? 1;
-    this.game.playerBullets.push(new Bullet(this.x - 5, this.y - 15, -spread, -620, 0.75 * damage, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
-    this.game.playerBullets.push(new Bullet(this.x + 5, this.y - 15, spread, -620, 0.75 * damage, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
+    this.game.playerBullets.push(new Bullet(this.x - 5, this.y - 15, -spread, -620, 0.75 * damage, "player", "#69f1ff", 4, false, "playerBullet", 34, 78, { source: "wingman" }));
+    this.game.playerBullets.push(new Bullet(this.x + 5, this.y - 15, spread, -620, 0.75 * damage, "player", "#69f1ff", 4, false, "playerBullet", 34, 78, { source: "wingman" }));
     if (this.level >= 3) {
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -680, 1.25 * damage, "player", "#8ffbff", 5, false, "playerBullet", 38, 86));
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -680, 1.25 * damage, "player", "#8ffbff", 5, false, "playerBullet", 38, 86, { source: "wingman" }));
     }
     this.fireTimer = 0.42 - this.level * 0.04;
   }
@@ -88,7 +88,7 @@ export class Wingman {
     }
     if (this.fireTimer <= 0) {
       const damage = this.game.upgrades?.wingmanDamageMultiplier ?? 1;
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 12, 0, -520, 0.7 * damage, "player", "#fff3a8", 4, false, "playerBullet", 30, 70));
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 12, 0, -520, 0.7 * damage, "player", "#fff3a8", 4, false, "playerBullet", 30, 70, { source: "wingman" }));
       this.fireTimer = 0.9 - this.level * 0.08;
     }
   }
@@ -96,7 +96,7 @@ export class Wingman {
   updateLaser() {
     if (this.fireTimer > 0) return;
     const damage = this.game.upgrades?.wingmanDamageMultiplier ?? 1;
-    this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -760, (1.4 + this.level * 0.72) * damage, "player", "#d05cff", 7, true, "laser", 42, 112));
+    this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -760, (1.4 + this.level * 0.72) * damage, "player", "#d05cff", 7, true, "laser", 42, 112, { source: "wingman" }));
     this.fireTimer = 0.84 - this.level * 0.08;
   }
 

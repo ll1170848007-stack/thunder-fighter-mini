@@ -33,6 +33,7 @@ export class Bullet {
     this.lifeTime = options.lifeTime ?? 4;
     this.spriteRotation = options.spriteRotation ?? true;
     this.spriteAlpha = options.spriteAlpha ?? 1;
+    this.source = options.source ?? owner;
     this.destructible = options.destructible ?? false;
     this.hp = options.hp ?? (this.destructible ? 2 : 0);
     this.maxHp = this.hp;
