@@ -1,35 +1,20 @@
-﻿import { AudioSystem } from "./audio.js?v=20260604-enemy-boss-assets";
-import { SpriteAtlas } from "./assets.js?v=20260604-enemy-boss-assets";
-import { Boss } from "./boss.js?v=20260604-enemy-boss-assets";
-import { Enemy } from "./enemies.js?v=20260604-enemy-boss-assets";
-import { Input } from "./input.js?v=20260604-enemy-boss-assets";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-enemy-boss-assets";
-import { Player } from "./player.js?v=20260604-enemy-boss-assets";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-enemy-boss-assets";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-enemy-boss-assets";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-enemy-boss-assets";
-import { getStageWaves } from "./waves.js?v=20260604-enemy-boss-assets";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-enemy-boss-assets";
+﻿import { AudioSystem } from "./audio.js?v=20260605-survivor-loop";
+import { SpriteAtlas } from "./assets.js?v=20260605-survivor-loop";
+import { Boss } from "./boss.js?v=20260605-survivor-loop";
+import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
+import { Enemy } from "./enemies.js?v=20260605-survivor-loop";
+import { Essence } from "./essence.js?v=20260605-survivor-loop";
+import { Input } from "./input.js?v=20260605-survivor-loop";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-survivor-loop";
+import { Player } from "./player.js?v=20260605-survivor-loop";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-survivor-loop";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-survivor-loop";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-survivor-loop";
+import { getStageWaves } from "./waves.js?v=20260605-survivor-loop";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-survivor-loop";
+import { chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-survivor-loop";
 
-const UPGRADE_OPTIONS = [
-  { id: "attack", title: "攻击 +15%", desc: "所有玩家伤害提高。", apply: (game) => { game.upgrades.attackMultiplier *= 1.15; } },
-  { id: "core", title: "核心冷却 -20%", desc: "Frost / Solar / Void 核心恢复更快。", apply: (game) => { game.upgrades.coreCooldownMultiplier *= 0.8; } },
-  { id: "bomb", title: "炸弹 +1", desc: "B 键清屏资源增加。", apply: (game) => { game.player.bombs = Math.min(5, game.player.bombs + 1); } },
-  { id: "life", title: "生命 +1", desc: "立即恢复一条生命。", apply: (game) => { game.player.lives = Math.min(8, game.player.lives + 1); } },
-  { id: "pierce", title: "穿透 +1", desc: "玩家子弹额外穿透一次。", apply: (game) => { game.upgrades.pierceBonus += 1; } },
-  { id: "pickup", title: "拾取范围 +30%", desc: "道具更容易吃到。", apply: (game) => { game.upgrades.pickupRadius = Math.min(62, game.upgrades.pickupRadius * 1.3); } },
-  { id: "wingman", title: "僚机等级 +1", desc: "强化已有僚机，没有僚机时获得脉冲僚机。", apply: (game) => {
-    game.upgrades.wingmanLevel += 1;
-    if (game.wingmen.length) game.wingmen.forEach((wingman) => wingman.boost());
-    else game.addWingman("attack");
-  } },
-  { id: "crit", title: "暴击率 +10%", desc: "命中有概率造成高额伤害。", apply: (game) => { game.upgrades.critChance = Math.min(0.5, game.upgrades.critChance + 0.1); } },
-  { id: "speed", title: "移速 +8%", desc: "战机移动速度提高。", apply: (game) => { game.upgrades.speedMultiplier *= 1.08; } },
-  { id: "shield", title: "护盾时间 +2 秒", desc: "护盾类效果更持久，并立即获得短护盾。", apply: (game) => {
-    game.upgrades.shieldBonus += 2;
-    game.player.shield = Math.max(game.player.shield, 2);
-  } },
-];
+const MAX_ESSENCES = 220;
 
 export class Game {
   constructor(canvas, overlay, overlayText, startButton) {
@@ -68,7 +53,7 @@ export class Game {
 
   handleOverlayClick(event) {
     const upgradeButton = event.target.closest("[data-upgrade]");
-    if (upgradeButton && this.state === "upgrade") {
+    if (upgradeButton && (this.state === "upgrade" || this.state === "levelup")) {
       this.applyUpgradeChoice(upgradeButton.dataset.upgrade);
       return;
     }
@@ -118,11 +103,17 @@ export class Game {
     this.enemyBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.essences = [];
     this.particles = [];
     this.wingmen = [];
     this.boss = null;
     this.score = 0;
     this.killCount = 0;
+    this.playerLevel = 1;
+    this.xp = 0;
+    this.xpToNext = xpToNextLevel(this.playerLevel);
+    this.pendingLevelUps = 0;
+    this.upgradeStacks = {};
     this.time = 0;
     this.runStartTime = 0;
     this.stageIndex = 0;
@@ -153,8 +144,29 @@ export class Game {
       pickupRadius: 28,
       wingmanLevel: 0,
       critChance: 0,
+      critDamageMultiplier: 1,
       speedMultiplier: 1,
       shieldBonus: 0,
+      xpMultiplier: 1,
+      essenceMagnetMultiplier: 1,
+      essenceMagnetBonus: 0,
+      essenceHealChance: 0,
+      fireRateMultiplier: 1,
+      wingmanDamageMultiplier: 1,
+      lowLifeFireRate: 0,
+      killBurstLevel: 0,
+      splitChance: 0,
+      frostMarkBonus: 0,
+      frostChainRangeMultiplier: 1,
+      frostHarvest: false,
+      crimsonChargeMultiplier: 1,
+      crimsonBossCharge: 0,
+      crimsonDoubleShot: false,
+      solarBladeBonus: 0,
+      solarSpreadSeek: 0,
+      solarStorm: false,
+      voidDodgeChance: 0,
+      voidShadowLevel: 0,
     };
   }
 
@@ -163,7 +175,9 @@ export class Game {
   }
 
   difficultyScale() {
-    return Math.min(7, this.stageIndex * 0.75 + this.stageTime / 48 + this.stageScore / 5200);
+    const earlyRamp = this.stageTime < 60 ? this.stageTime / 92 : this.stageTime < 150 ? 0.65 + (this.stageTime - 60) / 78 : 1.8 + (this.stageTime - 150) / 54;
+    const levelRamp = Math.max(0, (this.playerLevel ?? 1) - 1) * 0.16;
+    return Math.min(7, this.stageIndex * 0.65 + earlyRamp + this.stageScore / 7200 + levelRamp);
   }
 
   loop(timeMs) {
@@ -223,6 +237,7 @@ export class Game {
     this.updateList(this.enemyBullets, dt);
     this.updateList(this.enemies, dt);
     this.updateList(this.powerups, dt);
+    this.updateList(this.essences, dt);
     this.updateList(this.particles, dt);
     if (this.boss) {
       this.boss.update(dt);
@@ -246,6 +261,7 @@ export class Game {
     document.body.dataset.stageIndex = String(this.stageIndex);
     document.body.dataset.stageTime = String(Math.floor(this.stageTime));
     document.body.dataset.bossActive = String(Boolean(this.boss));
+    document.body.dataset.playerLevel = String(this.playerLevel ?? 1);
   }
 
   updateStars(dt) {
@@ -415,6 +431,10 @@ export class Game {
     for (const powerup of this.powerups) {
       if (!powerup.dead && circleHit(powerup, { x: this.player.x, y: this.player.y, radius: this.player.pickupRadius ?? 28 })) powerup.apply(this.player);
     }
+
+    for (const essence of this.essences) {
+      if (!essence.dead && circleHit(essence, { x: this.player.x, y: this.player.y, radius: this.player.pickupRadius ?? 28 })) essence.apply(this);
+    }
   }
 
   applyPlayerBulletHit(bullet, target) {
@@ -433,6 +453,11 @@ export class Game {
     } else {
       bullet.dead = true;
     }
+    if (bullet.owner === "player" && this.upgrades?.splitChance && chance(this.upgrades.splitChance)) {
+      for (const angle of [-1.78, -1.36]) {
+        this.playerBullets.push(new Bullet(bullet.x, bullet.y, Math.cos(angle) * 430, Math.sin(angle) * 430, Math.max(0.6, damage * 0.26), "player", bullet.color, 3.8, false, null, null, null, { lifeTime: 1.1 }));
+      }
+    }
     if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
   }
 
@@ -449,8 +474,10 @@ export class Game {
       const dy = target.y - this.player.y;
       if (dx * dx + dy * dy < 105 * 105) damage *= 1.12;
     }
-    if (Math.random() < (this.upgrades?.critChance ?? 0)) {
-      damage *= 1.75;
+    const voidBoost = this.player?.ship.id === "void" ? (this.player.voidCritBoost ?? 0) : 0;
+    const critChance = (this.upgrades?.critChance ?? 0) + (voidBoost > 0 ? 0.18 : 0);
+    if (Math.random() < critChance) {
+      damage *= 1.75 * (this.upgrades?.critDamageMultiplier ?? 1) * (voidBoost > 0 ? 1.35 : 1);
       hitSpark(this, bullet.x, bullet.y, "#fff3a8");
     }
     return damage;
@@ -503,8 +530,73 @@ export class Game {
       this.stageScore += enemy.score;
       this.player?.onEnemyKilled(enemy);
     }
-    const dropChance = enemy.type === "miniBoss" ? 0.78 : enemy.type === "elite" ? 0.42 : 0.16;
+    this.dropEssences(enemy);
+    if ((this.upgrades?.killBurstLevel ?? 0) > 0) {
+      shockwave(this, enemy.x, enemy.y, 42 + this.upgrades.killBurstLevel * 12, "#fff3a8", 0.18);
+      for (const target of this.enemies) {
+        if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 36 + this.upgrades.killBurstLevel * 12 })) {
+          target.hit(0.8 + this.upgrades.killBurstLevel * 0.45);
+        }
+      }
+    }
+    const dropChance = enemy.type === "miniBoss" ? 0.28 : enemy.type === "elite" ? 0.16 : 0.055;
     if (chance(dropChance)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
+  }
+
+  spawnEssence(type, x, y) {
+    if (this.essences.length >= MAX_ESSENCES) this.essences.splice(0, this.essences.length - MAX_ESSENCES + 1);
+    this.essences.push(new Essence(this, type, x, y));
+  }
+
+  dropEssences(enemy) {
+    const scatter = (type, count) => {
+      for (let i = 0; i < count; i++) this.spawnEssence(type, enemy.x + rand(-12, 12), enemy.y + rand(-10, 10));
+    };
+    const solarStormBonus = () => {
+      if (this.player?.ship.id === "solar" && this.upgrades?.solarStorm && chance(0.28)) scatter("blue", 1);
+    };
+    if (enemy.type === "miniBoss") {
+      scatter("purple", 3 + Math.floor(Math.random() * 2));
+      scatter("red", 1);
+      solarStormBonus();
+      return;
+    }
+    if (enemy.type === "elite") {
+      scatter("purple", 1);
+      scatter("blue", 1 + Math.floor(Math.random() * 2));
+      solarStormBonus();
+      return;
+    }
+    if (enemy.type === "bulwark" || enemy.type === "shield") {
+      scatter("blue", 2 + Math.floor(Math.random() * 2));
+      if (chance(0.35)) scatter("purple", 1);
+      solarStormBonus();
+      return;
+    }
+    if (enemy.type === "striker" || enemy.type === "sentry" || enemy.type === "laser" || enemy.type === "mineLayer" || enemy.type === "summoner" || enemy.type === "healer") {
+      scatter("blue", 1 + Math.floor(Math.random() * 2));
+      solarStormBonus();
+      return;
+    }
+    scatter("blue", 1);
+    solarStormBonus();
+  }
+
+  gainXp(amount, essenceType = "blue", options = {}) {
+    const finalAmount = amount * (this.upgrades?.xpMultiplier ?? 1);
+    this.xp += finalAmount;
+    if (this.player?.ship.id === "crimson") this.player.addCrimsonCharge?.(essenceType === "red" ? 10 : essenceType === "purple" ? 5 : 1.4);
+    if (this.upgrades?.essenceHealChance && chance(this.upgrades.essenceHealChance)) {
+      this.player.lives = Math.min(this.player.maxLives, this.player.lives + 1);
+      this.toast("精华回流 +1 生命", 0.8);
+    }
+    while (this.xp >= this.xpToNext) {
+      this.xp -= this.xpToNext;
+      this.playerLevel += 1;
+      this.pendingLevelUps += 1;
+      this.xpToNext = xpToNextLevel(this.playerLevel);
+    }
+    if (!options.deferLevelUp && this.pendingLevelUps > 0 && this.state === "playing") this.showLevelUpCards(false);
   }
 
   killBoss() {
@@ -514,31 +606,39 @@ export class Game {
     this.shake = Math.max(this.shake, 0.48);
     this.audio.explosion();
     this.score += this.currentStage().bossScore;
+    this.gainXp(60, "red", { deferLevelUp: true });
+    this.toast("Boss 红精华 +60 XP", 1.1);
     this.boss = null;
     if (this.stageIndex >= STAGES.length - 1) {
       this.victoryTimer = 2.2;
     } else {
-      this.showUpgradeSelect();
+      this.showLevelUpCards(true);
     }
   }
 
   showUpgradeSelect() {
+    this.showLevelUpCards(true);
+  }
+
+  showLevelUpCards(bossReward = false) {
     this.player?.coreReleased();
-    this.state = "upgrade";
+    this.state = bossReward ? "upgrade" : "levelup";
     this.coreWasDown = false;
-    this.enemyBullets = [];
-    this.playerBullets = [];
-    this.enemies = [];
-    this.powerups = [];
-    this.pendingUpgradeChoices = [...UPGRADE_OPTIONS]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    if (bossReward) {
+      this.enemyBullets = [];
+      this.playerBullets = [];
+      this.enemies = [];
+      this.powerups = [];
+      this.essences = [];
+    }
+    this.pendingUpgradeChoices = chooseUpgradeCards(this, { bossReward });
     this.panel.innerHTML = `
-      <h1>选择强化</h1>
-      <p id="overlayText">${this.currentStage().shortName} 已突破，选择一项强化后进入下一关。</p>
+      <h1>${bossReward ? "阶段奖励" : `升级 Lv.${this.playerLevel}`}</h1>
+      <p id="overlayText">${bossReward ? `${this.currentStage().shortName} 已突破，选择高稀有强化。` : "吸收精华完成升级，选择一张卡牌强化当前 Build。"}</p>
       <div class="upgrade-grid">
         ${this.pendingUpgradeChoices.map((upgrade) => `
-          <button class="upgrade-card" type="button" data-upgrade="${upgrade.id}">
+          <button class="upgrade-card rarity-${upgrade.rarity}" type="button" data-upgrade="${upgrade.id}">
+            <span class="upgrade-rarity">${RARITY[upgrade.rarity]?.label ?? upgrade.rarity}${upgrade.ship ? " / 专属" : ""}</span>
             <span class="upgrade-title">${upgrade.title}</span>
             <span class="upgrade-desc">${upgrade.desc}</span>
           </button>
@@ -552,12 +652,22 @@ export class Game {
     const upgrade = this.pendingUpgradeChoices.find((item) => item.id === id);
     if (!upgrade) return;
     upgrade.apply(this);
+    this.upgradeStacks[upgrade.id] = (this.upgradeStacks[upgrade.id] ?? 0) + 1;
     this.player.upgrades = this.upgrades;
     this.player.pickupRadius = this.upgrades.pickupRadius;
     this.player.speed = this.shipConfig.speed * this.upgrades.speedMultiplier;
     this.toast(`强化：${upgrade.title}`, 1.2);
     this.overlay.classList.add("hidden");
-    this.beginStageTransition();
+    if (this.state === "upgrade") {
+      this.beginStageTransition();
+      return;
+    }
+    this.pendingLevelUps = Math.max(0, this.pendingLevelUps - 1);
+    if (this.pendingLevelUps > 0) {
+      this.showLevelUpCards(false);
+    } else {
+      this.state = "playing";
+    }
   }
 
   beginStageTransition() {
@@ -568,6 +678,7 @@ export class Game {
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.essences = [];
     this.toast(`${this.currentStage().shortName} cleared`, 1.1);
   }
 
@@ -600,8 +711,10 @@ export class Game {
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.essences = [];
     this.toast(`${this.currentStage().name} 开始`, 1.8);
     this.state = "playing";
+    if (this.pendingLevelUps > 0) this.showLevelUpCards(false);
   }
 
   useBomb() {
@@ -632,6 +745,7 @@ export class Game {
     this.enemyBullets = this.enemyBullets.filter((x) => !x.dead);
     this.enemies = this.enemies.filter((x) => !x.dead);
     this.powerups = this.powerups.filter((x) => !x.dead);
+    this.essences = this.essences.filter((x) => !x.dead);
     this.particles = this.particles.filter((x) => x.life > 0);
   }
 
@@ -646,7 +760,7 @@ export class Game {
       victory ? "任务胜利" : "战机失联",
       `
         <span class="result-line">评级 <b>${rank}</b> / 分数 ${this.score} / 最高 ${this.highScore}</span>
-        <span class="result-line">击杀 ${this.killCount} / 用时 ${minutes}:${seconds} / 机体 ${this.shipConfig.name}</span>
+        <span class="result-line">击杀 ${this.killCount} / 等级 Lv.${this.playerLevel} / 用时 ${minutes}:${seconds} / 机体 ${this.shipConfig.name}</span>
       `,
       "select",
     );
@@ -672,6 +786,7 @@ export class Game {
     }
     this.drawBackground(ctx);
     for (const item of this.powerups) item.draw(ctx);
+    for (const item of this.essences) item.draw(ctx);
     for (const item of this.playerBullets) item.draw(ctx, this.assets);
     for (const item of this.enemies) item.draw(ctx);
     if (this.boss) this.boss.draw(ctx);
@@ -721,6 +836,19 @@ export class Game {
     ctx.shadowBlur = 8;
     ctx.fillText(`分数 ${this.score}`, 16, 14);
     ctx.fillText(`最高 ${this.highScore}`, 16, 38);
+    ctx.fillText(`等级 Lv.${this.playerLevel}`, 16, 62);
+    const xpW = 132;
+    const xpY = 86;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.fillRect(16, xpY, xpW, 6);
+    ctx.fillStyle = "#69f1ff";
+    ctx.fillRect(16, xpY, xpW * clamp(this.xp / Math.max(1, this.xpToNext), 0, 1), 6);
+    ctx.fillStyle = "#c8d7e7";
+    ctx.font = "700 11px Microsoft YaHei, sans-serif";
+    ctx.fillText(`${Math.floor(this.xp)}/${this.xpToNext}`, 16, xpY + 8);
+    ctx.font = "700 16px Microsoft YaHei, sans-serif";
+    ctx.shadowBlur = 8;
     ctx.textAlign = "right";
     ctx.fillText(`生命 ${this.player.lives}`, this.width - 16, 14);
     ctx.fillText(`火力 Lv.${this.player.power}  B 炸弹 ${this.player.bombs}`, this.width - 16, 38);
@@ -792,6 +920,10 @@ export class Game {
       ctx.fillStyle = "rgba(0,0,0,0.28)";
       ctx.fillRect(0, 0, this.width, this.height);
     }
+    if (this.state === "levelup" || this.state === "upgrade") {
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
     if (this.state === "transition") {
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff3a8";
@@ -807,6 +939,7 @@ export class Game {
     this.enemyBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.essences = [];
     this.particles = [];
     this.wingmen = [];
     this.shake = 0;

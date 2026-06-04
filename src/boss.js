@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-enemy-boss-assets";
-import { clamp, distanceSq } from "./utils.js?v=20260604-enemy-boss-assets";
+﻿import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
+import { clamp, distanceSq } from "./utils.js?v=20260605-survivor-loop";
 
 export class Boss {
   constructor(game, stage) {

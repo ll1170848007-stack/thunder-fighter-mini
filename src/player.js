@@ -1,7 +1,7 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-enemy-boss-assets";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-enemy-boss-assets";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-enemy-boss-assets";
-import { clamp, distanceSq } from "./utils.js?v=20260604-enemy-boss-assets";
+﻿import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260605-survivor-loop";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260605-survivor-loop";
+import { clamp, distanceSq } from "./utils.js?v=20260605-survivor-loop";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
@@ -16,7 +16,8 @@ export class Player {
     this.radius = 18;
     this.hitRadius = 3.5;
     this.speed = this.ship.speed * (this.upgrades.speedMultiplier ?? 1);
-    this.lives = this.ship.id === "void" ? 5 : 6;
+    this.maxLives = this.ship.id === "void" ? 5 : 6;
+    this.lives = this.maxLives;
     this.power = 1;
     this.invincible = 2.2;
     this.shield = 0;
@@ -38,14 +39,16 @@ export class Player {
     this.crimsonOverheat = 0;
     this.crimsonCharging = false;
     this.crimsonCharge = 0;
+    this.crimsonChargeMax = 100;
 
     this.solarModeIndex = 0;
     this.solarBladeAngle = 0;
     this.solarRecallPulse = 0;
 
     this.voidCooldown = 0;
-    this.voidCooldownMax = 2.9;
+    this.voidCooldownMax = 8.5;
     this.voidShadows = [];
+    this.voidCritBoost = 0;
   }
 
   update(dt, input) {
@@ -86,34 +89,26 @@ export class Player {
     this.frostComboTimer = Math.max(0, this.frostComboTimer - dt);
     if (this.frostComboTimer <= 0) this.frostCombo = Math.max(0, this.frostCombo - dt * 1.2);
 
-    if (this.crimsonOverheat > 0) {
+    if (this.ship.id === "crimson") {
       this.crimsonOverheat = Math.max(0, this.crimsonOverheat - dt);
-      this.crimsonHeat = Math.max(34, this.crimsonHeat - dt * 20);
-    } else if (this.crimsonCharging) {
-      this.crimsonCharge += dt;
-      this.crimsonHeat = Math.min(115, this.crimsonHeat + dt * (13 + this.crimsonCharge * 7));
-      this.coreFlash = 0.12;
-      for (let i = 0; i < 2; i++) {
-        this.game.particles.push(new Particle(this.x + (Math.random() - 0.5) * 34, this.y - 28, (Math.random() - 0.5) * 90, -120, 0.22, "#ff4b55", 2.8));
-      }
-      if (this.crimsonHeat >= 100) {
+      this.addCrimsonCharge(dt * 5.8 * (this.upgrades.crimsonChargeMultiplier ?? 1), false);
+      if (this.crimsonCharge >= this.crimsonChargeMax && this.crimsonOverheat <= 0) {
         this.releaseCrimsonCharge(true);
-        this.crimsonOverheat = 2.4;
-        this.game.toast("重炮过热", 1);
       }
-    } else {
-      this.crimsonHeat = Math.max(0, this.crimsonHeat - dt * 16);
     }
 
     if (this.ship.id === "solar") this.updateSolarBlades(dt);
     if (this.ship.id === "void") this.updateVoidShadows(dt);
     this.voidCooldown = Math.max(0, this.voidCooldown - dt);
+    this.voidCritBoost = Math.max(0, this.voidCritBoost - dt);
   }
 
   currentFireDelay() {
     let delay = this.ship.fireDelay - (this.power - 1) * 0.004;
     if (this.ship.id === "crimson") delay *= 1.55;
     if (this.ship.id === "frost") delay *= Math.max(0.84, 1 - Math.min(8, this.frostCombo) * 0.018);
+    delay *= this.upgrades.fireRateMultiplier ?? 1;
+    if (this.lives <= Math.ceil(this.maxLives * 0.4)) delay *= Math.max(0.7, 1 - (this.upgrades.lowLifeFireRate ?? 0));
     return Math.max(0.12, delay);
   }
 
@@ -213,14 +208,13 @@ export class Player {
 
   corePressed(input) {
     if (this.ship.id === "frost") return this.activateFrostCore();
-    if (this.ship.id === "crimson") return this.startCrimsonCharge();
+    if (this.ship.id === "crimson") return this.releaseCrimsonCharge(false);
     if (this.ship.id === "solar") return this.cycleSolarMode();
     if (this.ship.id === "void") return this.activateVoidWarp(input);
     return false;
   }
 
   coreReleased() {
-    if (this.ship.id === "crimson") return this.releaseCrimsonCharge(false);
     return false;
   }
 
@@ -300,7 +294,8 @@ export class Player {
     for (const enemy of this.game.enemies) {
       if (enemy.dead || exclude.has(enemy)) continue;
       const dist = distanceSq(from, enemy);
-      if (dist < bestDist && dist < 190 * 190) {
+    const maxDist = 190 * (this.upgrades.frostChainRangeMultiplier ?? 1);
+      if (dist < bestDist && dist < maxDist * maxDist) {
         bestDist = dist;
         best = enemy;
       }
@@ -308,28 +303,26 @@ export class Player {
     return best;
   }
 
-  startCrimsonCharge() {
-    if (this.crimsonOverheat > 0 || this.crimsonCharging) return false;
-    this.crimsonCharging = true;
-    this.crimsonCharge = 0;
-    this.game.toast("重炮蓄力", 0.7);
-    return true;
+  addCrimsonCharge(amount, flash = true) {
+    if (this.ship.id !== "crimson" || this.crimsonOverheat > 0) return;
+    this.crimsonCharge = Math.min(this.crimsonChargeMax, this.crimsonCharge + amount);
+    this.crimsonHeat = this.crimsonCharge;
+    if (flash) this.coreFlash = 0.12;
   }
 
   releaseCrimsonCharge(forced) {
-    if (!this.crimsonCharging) return false;
     const charge = this.crimsonCharge;
-    this.crimsonCharging = false;
+    if (charge < 40 && !forced) {
+      this.game.toast("重炮能量不足 40%", 0.75);
+      return false;
+    }
     this.crimsonCharge = 0;
-    if (charge < 0.12 && !forced) return false;
-
-    const tier = charge >= 1.8 ? 4 : charge >= 1 ? 3 : charge >= 0.4 ? 2 : 1;
-    const damage = [0, 9, 15, 24, 36][tier] + this.power * 1.6;
+    this.crimsonHeat = 0;
+    const tier = charge >= 100 ? 4 : charge >= 80 ? 3 : charge >= 40 ? 2 : 1;
+    const damage = [0, 9, 16, 25, 38][tier] + this.power * 1.6;
     const radius = [0, 42, 62, 86, 118][tier];
     const shotRadius = [0, 8, 10, 13, 16][tier];
-    const heatGain = [0, 12, 20, 32, 48][tier];
-    this.crimsonHeat = Math.min(115, this.crimsonHeat + heatGain);
-    if (this.crimsonHeat >= 100) this.crimsonOverheat = 2.2;
+    if (tier >= 4) this.crimsonOverheat = 1.2;
 
     const sprite = tier >= 4 ? "bulletCrimsonBeam" : tier >= 3 ? "bulletCrimsonRocket" : "bulletCrimsonShell";
     const spriteWidth = tier >= 4 ? 46 : tier >= 3 ? 44 : 30;
@@ -340,6 +333,15 @@ export class Player {
       pierce: tier >= 3 ? 1 : 0,
       lifeTime: 2.1,
     }));
+    if (tier >= 4 && this.upgrades.crimsonDoubleShot) {
+      for (const offset of [-18, 18]) {
+        this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 34, offset * 0.2, -590, damage * 0.62, "player", "#ffb02e", 9, false, "bulletCrimsonRocket", 44, 112, {
+          kind: "shell",
+          explodeRadius: radius * 0.65,
+          lifeTime: 2.1,
+        }));
+      }
+    }
     shockwave(this.game, this.x, this.y - 26, 56 + tier * 18, "#ff4b55", 0.28);
     this.game.shake = Math.max(this.game.shake, 0.12 + tier * 0.035);
     this.coreFlash = 0.35;
@@ -365,7 +367,7 @@ export class Player {
   }
 
   solarBladeCount() {
-    return clamp(3 + this.power + Math.floor((this.upgrades.wingmanLevel ?? 0) / 2), 3, 7);
+    return clamp(3 + this.power + (this.upgrades.solarBladeBonus ?? 0) + Math.floor((this.upgrades.wingmanLevel ?? 0) / 2), 3, 9);
   }
 
   solarBladePositions() {
@@ -398,7 +400,7 @@ export class Player {
     const mode = this.solarMode;
     const blades = this.solarBladePositions();
     const bladeRadius = mode === "spread" ? 19 : mode === "recall" ? 23 : 16;
-    const damage = mode === "spread" ? 0.72 : mode === "recall" ? 0.95 : 0.48;
+    const damage = (mode === "spread" ? 0.92 + (this.upgrades.solarSpreadSeek ?? 0) * 0.12 : mode === "recall" ? 0.95 : 0.48) * (this.upgrades.solarStorm ? 1.18 : 1);
     const targets = this.game.boss ? [...this.game.enemies, this.game.boss] : this.game.enemies;
 
     for (const target of targets) {
@@ -410,6 +412,10 @@ export class Player {
         if (distanceSq(blade, target) <= r * r) {
           target.solarBladeCooldown = 0.18;
           this.game.damageTarget(target, damage, "#ffd86a", { direct: true });
+          if (mode === "spread" && this.upgrades.solarSpreadSeek > 0) {
+            const next = this.nearestEnemy(target, new Set([target]));
+            if (next) this.game.damageTarget(next, damage * 0.42, "#fff3a8", { direct: true });
+          }
           break;
         }
       }
@@ -431,22 +437,23 @@ export class Player {
 
   activateVoidWarp(input) {
     if (this.voidCooldown > 0) return false;
-    const axis = input.axis();
-    const hasAxis = Math.hypot(axis.x, axis.y) > 0.1;
-    const dir = hasAxis ? axis : this.lastAxis;
     const startX = this.x;
     const startY = this.y;
-    const distance = 102 + this.power * 6;
-    this.x = clamp(this.x + dir.x * distance, 30, this.game.width - 30);
-    this.y = clamp(this.y + dir.y * distance, this.game.height * 0.42, this.game.height - 34);
-    this.invincible = Math.max(this.invincible, 0.82 + (this.upgrades.shieldBonus ?? 0));
-    this.voidCooldownMax = (2.9 - Math.min(0.4, (this.power - 1) * 0.08)) * (this.upgrades.coreCooldownMultiplier ?? 1);
+    this.invincible = Math.max(this.invincible, 1.2 + (this.upgrades.shieldBonus ?? 0) * 0.08);
+    this.voidCritBoost = Math.max(this.voidCritBoost, 2.6);
+    this.voidCooldownMax = (8.5 - Math.min(2.5, (this.power - 1) * 0.45)) * (this.upgrades.coreCooldownMultiplier ?? 1);
     this.voidCooldown = this.voidCooldownMax;
-    this.voidShadows.push({ x: startX, y: startY, time: 1.05, maxTime: 1.05, tick: 0 });
+    this.addVoidShadow(startX, startY, 1.3);
     shockwave(this.game, startX, startY, 70, "#b56cff", 0.34);
-    shockwave(this.game, this.x, this.y, 54, "#b56cff", 0.26);
-    this.game.toast("虚空折跃", 0.8);
+    this.game.toast("虚空相位", 0.8);
     return true;
+  }
+
+  addVoidShadow(x, y, duration = 1.05) {
+    const count = 1 + Math.min(3, this.upgrades.voidShadowLevel ?? 0);
+    for (let i = 0; i < count; i++) {
+      this.voidShadows.push({ x: x + (i - (count - 1) / 2) * 18, y, time: duration + i * 0.12, maxTime: duration + i * 0.12, tick: 0 });
+    }
   }
 
   updateVoidShadows(dt) {
@@ -456,12 +463,13 @@ export class Player {
       if (shadow.tick <= 0) {
         shadow.tick = 0.16;
         const closeBonus = this.nearEnemy(72) ? 1.25 : 1;
-        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, 1.65 * closeBonus, "player", "#b56cff", 5.6, false, "bulletVoidRift", 34, 94, {
+        const shadowLevel = this.upgrades.voidShadowLevel ?? 0;
+        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, (1.65 + shadowLevel * 0.28) * closeBonus, "player", "#b56cff", 5.6, false, "bulletVoidRift", 34, 94, {
           kind: "rift",
           split: true,
           splitAt: 0.25,
           splitCount: this.power >= 4 ? 2 : 1,
-          splitDamage: 0.68 * closeBonus,
+          splitDamage: (0.68 + shadowLevel * 0.12) * closeBonus,
           splitSprite: "bulletVoidShard",
           splitWidth: 30,
           splitHeight: 62,
@@ -482,13 +490,16 @@ export class Player {
   }
 
   onPlayerBulletHit(bullet, target) {
+    if (this.ship.id === "crimson" && target === this.game.boss) {
+      this.addCrimsonCharge(0.9 + (this.upgrades.crimsonBossCharge ?? 0), false);
+    }
     if (this.ship.id !== "frost") return;
     if (target === this.game.boss) {
       if (this.frostFocusTimer > 0) target.hit(0.22, bullet);
       return;
     }
     if (bullet.kind !== "needle" && bullet.kind !== "blade") return;
-    target.frostMark = clamp((target.frostMark ?? 0) + 1, 0, 6);
+    target.frostMark = clamp((target.frostMark ?? 0) + 1, 0, 6 + (this.upgrades.frostMarkBonus ?? 0));
     target.frostLockFlash = 0.18;
     if (target.frostMark >= 3) target.frostLocked = true;
   }
@@ -500,8 +511,10 @@ export class Player {
       if (enemy.frostLocked || enemy.frostMark >= 3) {
         const jumps = 1 + Math.floor(Math.min(10, this.frostCombo) / 4);
         this.detonateFrostTarget(enemy, 3.6 + this.power * 0.8, jumps);
+        if (this.upgrades.frostHarvest && Math.random() < 0.45) this.game.spawnEssence("blue", enemy.x, enemy.y);
       }
     }
+    if (this.ship.id === "crimson") this.addCrimsonCharge(enemy.type === "elite" || enemy.type === "miniBoss" ? 8 : 3);
     if (this.ship.id === "void") {
       const reduce = enemy.type === "elite" || enemy.type === "miniBoss" ? 1 : 0.38;
       this.voidCooldown = Math.max(0, this.voidCooldown - reduce);
@@ -510,6 +523,10 @@ export class Player {
 
   hurt() {
     if (this.invincible > 0) return false;
+    if (this.ship.id === "void" && Math.random() < this.currentDodgeChance()) {
+      this.triggerVoidDodge();
+      return false;
+    }
     if (this.shield > 0) {
       this.shield = 0;
       this.invincible = 0.75;
@@ -522,9 +539,23 @@ export class Player {
     this.game.damageFlash = 0.45;
     this.game.shake = Math.max(this.game.shake, 0.28);
     this.game.audio.hurt();
+    if (this.ship.id === "crimson") this.addCrimsonCharge(6);
     this.game.wingmen.pop();
     if (this.lives <= 0) this.dead = true;
     return true;
+  }
+
+  currentDodgeChance() {
+    const lowLifeBonus = this.lives <= Math.ceil(this.maxLives * 0.4) ? 0.05 : 0;
+    return clamp(0.12 + (this.upgrades.voidDodgeChance ?? 0) + lowLifeBonus, 0, 0.58);
+  }
+
+  triggerVoidDodge() {
+    this.invincible = Math.max(this.invincible, 0.7);
+    this.voidCritBoost = Math.max(this.voidCritBoost, 2.2);
+    this.addVoidShadow(this.x, this.y, 1.15 + (this.upgrades.voidShadowLevel ?? 0) * 0.2);
+    shockwave(this.game, this.x, this.y, 58, "#b56cff", 0.28);
+    this.game.toast("闪避", 0.45);
   }
 
   coreStatus() {
@@ -538,8 +569,8 @@ export class Player {
     }
     if (this.ship.id === "crimson") {
       return {
-        label: this.crimsonOverheat > 0 ? `过热 ${this.crimsonOverheat.toFixed(1)}s` : this.crimsonCharging ? `蓄力 ${this.crimsonCharge.toFixed(1)}s` : "重炮待命",
-        value: clamp(this.crimsonHeat / 100, 0, 1),
+        label: this.crimsonOverheat > 0 ? `冷却 ${this.crimsonOverheat.toFixed(1)}s` : `充能 ${Math.floor(this.crimsonCharge)}%`,
+        value: clamp(this.crimsonCharge / this.crimsonChargeMax, 0, 1),
         color: this.crimsonOverheat > 0 ? "#ff4b55" : "#ffb02e",
       };
     }
@@ -551,7 +582,7 @@ export class Player {
       };
     }
     return {
-      label: this.voidCooldown > 0 ? `折跃 ${this.voidCooldown.toFixed(1)}s` : "折跃 READY",
+      label: this.voidCooldown > 0 ? `相位 ${this.voidCooldown.toFixed(1)}s / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%` : `相位 READY / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%`,
       value: this.voidCooldown > 0 ? 1 - this.voidCooldown / Math.max(0.1, this.voidCooldownMax) : 1,
       color: "#b56cff",
     };

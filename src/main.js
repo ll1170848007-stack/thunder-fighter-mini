@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260604-enemy-boss-assets";
+﻿import { Game } from "./game.js?v=20260605-survivor-loop";
 
 document.body.dataset.appReady = "booting";
 

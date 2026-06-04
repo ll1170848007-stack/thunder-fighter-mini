@@ -1,4 +1,4 @@
-﻿import { rand } from "./utils.js?v=20260604-enemy-boss-assets";
+﻿import { rand } from "./utils.js?v=20260605-survivor-loop";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },
@@ -35,7 +35,7 @@ export class PowerUp {
   apply(player) {
     if (this.type === "power") player.power = Math.min(4, player.power + 1);
     if (this.type === "shield") player.shield = 8 + (this.game.upgrades?.shieldBonus ?? 0);
-    if (this.type === "life") player.lives = Math.min(8, player.lives + 1);
+    if (this.type === "life") player.lives = Math.min(player.maxLives ?? 8, player.lives + 1);
     if (this.type === "bomb") {
       player.bombs = Math.min(5, player.bombs + 1);
     }
