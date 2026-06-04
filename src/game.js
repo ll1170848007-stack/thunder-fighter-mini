@@ -6,11 +6,30 @@ import { Input } from "./input.js?v=20260604-arcade-upgrade";
 import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-arcade-upgrade";
 import { Player } from "./player.js?v=20260604-arcade-upgrade";
 import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-arcade-upgrade";
-import { drawSkillEffects, tryUseSkill, updateSkillEffects } from "./skills.js?v=20260604-arcade-upgrade";
 import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-arcade-upgrade";
 import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-arcade-upgrade";
 import { getStageWaves } from "./waves.js?v=20260604-arcade-upgrade";
 import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-arcade-upgrade";
+
+const UPGRADE_OPTIONS = [
+  { id: "attack", title: "攻击 +15%", desc: "所有玩家伤害提高。", apply: (game) => { game.upgrades.attackMultiplier *= 1.15; } },
+  { id: "core", title: "核心冷却 -20%", desc: "Frost / Solar / Void 核心恢复更快。", apply: (game) => { game.upgrades.coreCooldownMultiplier *= 0.8; } },
+  { id: "bomb", title: "炸弹 +1", desc: "B 键清屏资源增加。", apply: (game) => { game.player.bombs = Math.min(5, game.player.bombs + 1); } },
+  { id: "life", title: "生命 +1", desc: "立即恢复一条生命。", apply: (game) => { game.player.lives = Math.min(8, game.player.lives + 1); } },
+  { id: "pierce", title: "穿透 +1", desc: "玩家子弹额外穿透一次。", apply: (game) => { game.upgrades.pierceBonus += 1; } },
+  { id: "pickup", title: "拾取范围 +30%", desc: "道具更容易吃到。", apply: (game) => { game.upgrades.pickupRadius = Math.min(62, game.upgrades.pickupRadius * 1.3); } },
+  { id: "wingman", title: "僚机等级 +1", desc: "强化已有僚机，没有僚机时获得脉冲僚机。", apply: (game) => {
+    game.upgrades.wingmanLevel += 1;
+    if (game.wingmen.length) game.wingmen.forEach((wingman) => wingman.boost());
+    else game.addWingman("attack");
+  } },
+  { id: "crit", title: "暴击率 +10%", desc: "命中有概率造成高额伤害。", apply: (game) => { game.upgrades.critChance = Math.min(0.5, game.upgrades.critChance + 0.1); } },
+  { id: "speed", title: "移速 +8%", desc: "战机移动速度提高。", apply: (game) => { game.upgrades.speedMultiplier *= 1.08; } },
+  { id: "shield", title: "护盾时间 +2 秒", desc: "护盾类效果更持久，并立即获得短护盾。", apply: (game) => {
+    game.upgrades.shieldBonus += 2;
+    game.player.shield = Math.max(game.player.shield, 2);
+  } },
+];
 
 export class Game {
   constructor(canvas, overlay, overlayText, startButton) {
@@ -42,10 +61,17 @@ export class Game {
     this.transitionTimer = 0;
     this.lastTime = 0;
     this.keyLatch = new Set();
+    this.coreWasDown = false;
+    this.pendingUpgradeChoices = [];
     this.overlay.addEventListener("click", (event) => this.handleOverlayClick(event));
   }
 
   handleOverlayClick(event) {
+    const upgradeButton = event.target.closest("[data-upgrade]");
+    if (upgradeButton && this.state === "upgrade") {
+      this.applyUpgradeChoice(upgradeButton.dataset.upgrade);
+      return;
+    }
     const shipButton = event.target.closest("[data-ship]");
     if (shipButton) {
       this.start(shipButton.dataset.ship);
@@ -66,7 +92,7 @@ export class Game {
     this.state = "select";
     this.panel.innerHTML = `
       <h1>STAR RAID</h1>
-      <p id="overlayText">选择一架专属战机。E / Shift 释放技能，空格使用清屏炸弹。</p>
+      <p id="overlayText">选择一架专属战机。空格触发当前机体核心操作，B 使用清屏炸弹。</p>
       <div class="ship-grid">
         ${shipList().map((ship) => `
           <button class="ship-card" type="button" data-ship="${ship.id}" style="--ship-color:${ship.color}">
@@ -74,7 +100,7 @@ export class Game {
             <span>
               <span class="ship-name">${ship.englishName} · ${ship.name}</span>
               <span class="ship-role">${ship.role}</span>
-              <span class="ship-desc">${ship.attack} / 技能：${ship.skillName}</span>
+              <span class="ship-desc">${ship.attack} / 核心：${ship.skillName}</span>
             </span>
           </button>
         `).join("")}
@@ -86,6 +112,7 @@ export class Game {
   start(shipId = DEFAULT_SHIP_ID) {
     this.audio.unlock();
     this.shipConfig = SHIPS[shipId] ?? SHIPS[DEFAULT_SHIP_ID];
+    this.upgrades = this.createBaseUpgrades();
     this.player = new Player(this);
     this.playerBullets = [];
     this.enemyBullets = [];
@@ -93,7 +120,6 @@ export class Game {
     this.powerups = [];
     this.particles = [];
     this.wingmen = [];
-    this.skillEffects = [];
     this.boss = null;
     this.score = 0;
     this.killCount = 0;
@@ -112,9 +138,24 @@ export class Game {
     this.shake = 0;
     this.victoryTimer = 0;
     this.transitionTimer = 0;
+    this.coreWasDown = false;
+    this.pendingUpgradeChoices = [];
     this.state = "playing";
     this.toast(`${this.currentStage().name} 开始`);
     this.overlay.classList.add("hidden");
+  }
+
+  createBaseUpgrades() {
+    return {
+      attackMultiplier: 1,
+      coreCooldownMultiplier: 1,
+      pierceBonus: 0,
+      pickupRadius: 28,
+      wingmanLevel: 0,
+      critChance: 0,
+      speedMultiplier: 1,
+      shieldBonus: 0,
+    };
   }
 
   currentStage() {
@@ -153,11 +194,16 @@ export class Game {
       if (this.state === "playing") this.overlay.classList.add("hidden");
     }
     if (pressOnce("r")) this.start(this.shipConfig.id);
-    if (pressOnce(" ") && this.player?.bombs > 0 && this.state === "playing") {
-      this.player.bombs -= 1;
-      this.clearScreen();
+
+    if (pressOnce("b") && this.state === "playing") {
+      this.useBomb();
     }
-    if (this.state === "playing" && (pressOnce("e") || pressOnce("shift"))) tryUseSkill(this);
+
+    const coreDown = this.state === "playing" && (this.input.keys.has(" ") || this.input.keys.has("e") || this.input.keys.has("shift"));
+    if (coreDown && !this.coreWasDown) this.player?.corePressed(this.input);
+    if (!coreDown && this.coreWasDown) this.player?.coreReleased(this.input);
+    this.coreWasDown = coreDown;
+
     if (this.state === "playing" && pressOnce("1")) this.addWingman("attack");
     if (this.state === "playing" && pressOnce("2")) this.addWingman("guard");
     if (this.state === "playing" && pressOnce("3")) this.addWingman("laser");
@@ -171,7 +217,6 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt);
     this.updateStars(dt);
     this.player.update(dt, this.input);
-    updateSkillEffects(this, dt);
     this.updateList(this.wingmen, dt);
     this.spawnEnemies(dt);
     this.updateList(this.playerBullets, dt);
@@ -343,7 +388,7 @@ export class Game {
           this.applyPlayerBulletHit(bullet, enemy);
         }
       }
-      if (this.boss && !bullet.dead && circleHit(bullet, this.boss, -8)) {
+      if (this.boss && !bullet.dead && (circleHit(bullet, this.boss, -8) || this.boss.extraHitTest?.(bullet))) {
         this.applyPlayerBulletHit(bullet, this.boss);
       }
     }
@@ -368,17 +413,20 @@ export class Game {
     }
 
     for (const powerup of this.powerups) {
-      if (!powerup.dead && circleHit(powerup, { x: this.player.x, y: this.player.y, radius: 28 })) powerup.apply(this.player);
+      if (!powerup.dead && circleHit(powerup, { x: this.player.x, y: this.player.y, radius: this.player.pickupRadius ?? 28 })) powerup.apply(this.player);
     }
   }
 
   applyPlayerBulletHit(bullet, target) {
     const wasAlive = !target.dead;
-    target.hit(bullet.damage);
+    this.applyBulletUpgradeStats(bullet);
+    const damage = this.playerDamage(bullet, target);
+    target.hit(damage, bullet);
     target.applyDot?.(bullet.dot);
     hitSpark(this, bullet.x, bullet.y, bullet.color);
+    this.player?.onPlayerBulletHit(bullet, target, damage);
     if (bullet.explodeRadius) {
-      this.explodeBullet(bullet, target);
+      this.explodeBullet(bullet, target, damage);
       bullet.dead = true;
     } else if (bullet.pierce > 0) {
       bullet.pierce -= 1;
@@ -388,7 +436,37 @@ export class Game {
     if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
   }
 
-  explodeBullet(bullet, primaryTarget) {
+  applyBulletUpgradeStats(bullet) {
+    if (bullet.upgradeApplied) return;
+    bullet.pierce += this.upgrades?.pierceBonus ?? 0;
+    bullet.upgradeApplied = true;
+  }
+
+  playerDamage(bullet, target) {
+    let damage = bullet.damage * (this.upgrades?.attackMultiplier ?? 1);
+    if (this.player?.ship.id === "void" && target && !target.dead) {
+      const dx = target.x - this.player.x;
+      const dy = target.y - this.player.y;
+      if (dx * dx + dy * dy < 105 * 105) damage *= 1.12;
+    }
+    if (Math.random() < (this.upgrades?.critChance ?? 0)) {
+      damage *= 1.75;
+      hitSpark(this, bullet.x, bullet.y, "#fff3a8");
+    }
+    return damage;
+  }
+
+  damageTarget(target, damage, color = "#fff3a8", options = {}) {
+    if (!target || (target.dead && target !== this.boss)) return false;
+    const wasAlive = !target.dead;
+    target.hit(damage * (this.upgrades?.attackMultiplier ?? 1), null);
+    hitSpark(this, target.x, target.y, color);
+    if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
+    if (options.direct) this.shake = Math.max(this.shake, 0.035);
+    return true;
+  }
+
+  explodeBullet(bullet, primaryTarget, baseDamage = bullet.damage) {
     shockwave(this, bullet.x, bullet.y, bullet.explodeRadius, bullet.color, 0.35);
     burst(this, bullet.x, bullet.y, bullet.color, 16, 130);
     this.shake = Math.max(this.shake, 0.08);
@@ -398,14 +476,14 @@ export class Game {
       const dx = enemy.x - bullet.x;
       const dy = enemy.y - bullet.y;
       if (dx * dx + dy * dy <= radiusSq) {
-        enemy.hit(Math.max(1, bullet.damage * 0.55));
+        enemy.hit(Math.max(1, baseDamage * 0.55), bullet);
         if (enemy.dead) this.killEnemy(enemy);
       }
     }
     if (this.boss && this.boss !== primaryTarget) {
       const dx = this.boss.x - bullet.x;
       const dy = this.boss.y - bullet.y;
-      if (dx * dx + dy * dy <= radiusSq) this.boss.hit(Math.max(1, bullet.damage * 0.45));
+      if (dx * dx + dy * dy <= radiusSq) this.boss.hit(Math.max(1, baseDamage * 0.45), bullet);
     }
   }
 
@@ -423,8 +501,10 @@ export class Game {
       this.killCount += 1;
       this.score += enemy.score;
       this.stageScore += enemy.score;
+      this.player?.onEnemyKilled(enemy);
     }
-    if (chance(enemy.type === "elite" ? 0.56 : 0.24)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
+    const dropChance = enemy.type === "miniBoss" ? 0.88 : enemy.type === "elite" ? 0.56 : 0.24;
+    if (chance(dropChance)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
   }
 
   killBoss() {
@@ -438,18 +518,56 @@ export class Game {
     if (this.stageIndex >= STAGES.length - 1) {
       this.victoryTimer = 2.2;
     } else {
-      this.beginStageTransition();
+      this.showUpgradeSelect();
     }
   }
 
+  showUpgradeSelect() {
+    this.player?.coreReleased();
+    this.state = "upgrade";
+    this.coreWasDown = false;
+    this.enemyBullets = [];
+    this.playerBullets = [];
+    this.enemies = [];
+    this.powerups = [];
+    this.pendingUpgradeChoices = [...UPGRADE_OPTIONS]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+    this.panel.innerHTML = `
+      <h1>选择强化</h1>
+      <p id="overlayText">${this.currentStage().shortName} 已突破，选择一项强化后进入下一关。</p>
+      <div class="upgrade-grid">
+        ${this.pendingUpgradeChoices.map((upgrade) => `
+          <button class="upgrade-card" type="button" data-upgrade="${upgrade.id}">
+            <span class="upgrade-title">${upgrade.title}</span>
+            <span class="upgrade-desc">${upgrade.desc}</span>
+          </button>
+        `).join("")}
+      </div>
+    `;
+    this.overlay.classList.remove("hidden");
+  }
+
+  applyUpgradeChoice(id) {
+    const upgrade = this.pendingUpgradeChoices.find((item) => item.id === id);
+    if (!upgrade) return;
+    upgrade.apply(this);
+    this.player.upgrades = this.upgrades;
+    this.player.pickupRadius = this.upgrades.pickupRadius;
+    this.player.speed = this.shipConfig.speed * this.upgrades.speedMultiplier;
+    this.toast(`强化：${upgrade.title}`, 1.2);
+    this.overlay.classList.add("hidden");
+    this.beginStageTransition();
+  }
+
   beginStageTransition() {
+    this.player?.coreReleased();
     this.state = "transition";
     this.transitionTimer = 2.25;
     this.enemyBullets = [];
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
-    this.skillEffects = [];
     this.toast(`${this.currentStage().shortName} cleared`, 1.1);
   }
 
@@ -482,9 +600,18 @@ export class Game {
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
-    this.skillEffects = [];
     this.toast(`${this.currentStage().name} 开始`, 1.8);
     this.state = "playing";
+  }
+
+  useBomb() {
+    if (!this.player?.bombs) {
+      this.toast("没有炸弹", 0.8);
+      return false;
+    }
+    this.player.bombs -= 1;
+    this.clearScreen();
+    return true;
   }
 
   clearScreen() {
@@ -548,7 +675,6 @@ export class Game {
     for (const item of this.playerBullets) item.draw(ctx, this.assets);
     for (const item of this.enemies) item.draw(ctx);
     if (this.boss) this.boss.draw(ctx);
-    drawSkillEffects(this, ctx);
     for (const item of this.enemyBullets) item.draw(ctx, this.assets);
     for (const item of this.wingmen) item.draw(ctx);
     if (this.player) this.player.draw(ctx);
@@ -597,22 +723,20 @@ export class Game {
     ctx.fillText(`最高 ${this.highScore}`, 16, 38);
     ctx.textAlign = "right";
     ctx.fillText(`生命 ${this.player.lives}`, this.width - 16, 14);
-    ctx.fillText(`火力 Lv.${this.player.power}  炸弹 ${this.player.bombs}`, this.width - 16, 38);
+    ctx.fillText(`火力 Lv.${this.player.power}  B 炸弹 ${this.player.bombs}`, this.width - 16, 38);
     if (this.player.shield > 0) ctx.fillText(`护盾 ${Math.ceil(this.player.shield)}s`, this.width - 16, 62);
-    const skillReady = this.player.skillCooldown <= 0;
+    const core = this.player.coreStatus();
     ctx.textAlign = "right";
-    ctx.fillStyle = skillReady ? "#fff3a8" : "#9fb1c4";
-    const cdText = skillReady ? "READY" : `${this.player.skillCooldown.toFixed(1)}s`;
-    ctx.fillText(`${this.shipConfig.skillName} ${cdText}`, this.width - 16, this.height - 32);
+    ctx.fillStyle = core.value >= 0.98 ? "#fff3a8" : "#9fb1c4";
+    ctx.fillText(`空格核心 ${core.label}`, this.width - 16, this.height - 32);
     const cdW = 128;
     const cdX = this.width - 16 - cdW;
     const cdY = this.height - 12;
     ctx.shadowBlur = 0;
     ctx.fillStyle = "rgba(255,255,255,0.14)";
     ctx.fillRect(cdX, cdY, cdW, 5);
-    ctx.fillStyle = skillReady ? this.shipConfig.color : "#546070";
-    const cdP = skillReady ? 1 : 1 - clamp(this.player.skillCooldown / this.shipConfig.skillCooldown, 0, 1);
-    ctx.fillRect(cdX, cdY, cdW * cdP, 5);
+    ctx.fillStyle = core.color;
+    ctx.fillRect(cdX, cdY, cdW * clamp(core.value, 0, 1), 5);
     ctx.shadowBlur = 8;
     if (this.wingmen.length) {
       const names = this.wingmen.map((wingman) => `${WINGMAN_INFO[wingman.type].name} Lv.${wingman.level}`).join(" / ");
@@ -645,6 +769,10 @@ export class Game {
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
       ctx.fillText(`${this.boss.name}  PHASE ${this.boss.phase}  ${Math.max(0, Math.ceil(this.boss.hp))}/${this.boss.maxHp}`, this.width / 2, 102);
+      if (this.boss.mechanicLabel) {
+        ctx.fillStyle = "#fff3a8";
+        ctx.fillText(this.boss.mechanicLabel(), this.width / 2, 122);
+      }
     }
     if (this.bossWarning > 0) {
       const flash = Math.floor(this.bossWarning * 12) % 2 === 0;
@@ -681,7 +809,6 @@ export class Game {
     this.powerups = [];
     this.particles = [];
     this.wingmen = [];
-    this.skillEffects = [];
     this.shake = 0;
     this.damageFlash = 0;
     requestAnimationFrame((t) => this.loop(t));
