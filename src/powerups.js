@@ -1,4 +1,4 @@
-﻿import { rand } from "./utils.js?v=20260604-cutout-aspect";
+﻿import { rand } from "./utils.js?v=20260604-difficulty-tune";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },
@@ -96,11 +96,11 @@ export class PowerUp {
 
 export function randomPowerType() {
   const roll = Math.random();
-  if (roll < 0.30) return "power";
-  if (roll < 0.48) return "shield";
-  if (roll < 0.62) return "life";
-  if (roll < 0.74) return "bomb";
-  if (roll < 0.84) return "wing_attack";
+  if (roll < 0.22) return "power";
+  if (roll < 0.42) return "shield";
+  if (roll < 0.58) return "life";
+  if (roll < 0.72) return "bomb";
+  if (roll < 0.83) return "wing_attack";
   if (roll < 0.93) return "wing_guard";
   return "wing_laser";
 }

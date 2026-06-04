@@ -17,7 +17,7 @@
     preview: "./assets/player_frost_spear_sprite.png",
     skillName: "冰晶锁定 / 引爆",
     coreCooldown: 11.5,
-    fireDelay: 0.1,
+    fireDelay: 0.14,
   },
   crimson: {
     id: "crimson",
@@ -37,7 +37,7 @@
     preview: "./assets/player_crimson_cannon_sprite.png",
     skillName: "蓄力歼灭炮",
     coreCooldown: 15.5,
-    fireDelay: 0.15,
+    fireDelay: 0.22,
   },
   solar: {
     id: "solar",
@@ -57,7 +57,7 @@
     preview: "./assets/player_solar_wing_sprite.png",
     skillName: "羽刃模式切换",
     coreCooldown: 13.5,
-    fireDelay: 0.13,
+    fireDelay: 0.18,
   },
   void: {
     id: "void",
@@ -77,7 +77,7 @@
     preview: "./assets/player_void_phantom_sprite.png",
     skillName: "虚空折跃",
     coreCooldown: 12.5,
-    fireDelay: 0.115,
+    fireDelay: 0.16,
   },
 };
 
@@ -88,7 +88,7 @@ export const STAGES = [
     name: "第一关 近地轨道",
     shortName: "近地轨道",
     bossName: "赤潮巡洋舰",
-    bossHp: 290,
+    bossHp: 520,
     bossScore: 3200,
     bossColor: "#ff4fa3",
     maxEnemies: 7,
@@ -98,7 +98,7 @@ export const STAGES = [
     name: "第二关 星尘裂谷",
     shortName: "星尘裂谷",
     bossName: "紫电圣甲",
-    bossHp: 410,
+    bossHp: 760,
     bossScore: 4500,
     bossColor: "#b98cff",
     maxEnemies: 9,
@@ -108,7 +108,7 @@ export const STAGES = [
     name: "第三关 深空王座",
     shortName: "深空王座",
     bossName: "黑曜母舰",
-    bossHp: 560,
+    bossHp: 1050,
     bossScore: 6800,
     bossColor: "#ff3d3d",
     maxEnemies: 11,

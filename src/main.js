@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260604-cutout-aspect";
+﻿import { Game } from "./game.js?v=20260604-difficulty-tune";
 
 document.body.dataset.appReady = "booting";
 

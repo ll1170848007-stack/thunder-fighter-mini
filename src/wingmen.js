@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
-import { Particle, hitSpark } from "./particles.js?v=20260604-cutout-aspect";
+﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
+import { Particle, hitSpark } from "./particles.js?v=20260604-difficulty-tune";
 
 export const WINGMAN_INFO = {
   attack: {
@@ -63,12 +63,12 @@ export class Wingman {
   updateAttack() {
     if (this.fireTimer > 0) return;
     const spread = this.level >= 2 ? 42 : 18;
-    this.game.playerBullets.push(new Bullet(this.x - 5, this.y - 15, -spread, -620, 1, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
-    this.game.playerBullets.push(new Bullet(this.x + 5, this.y - 15, spread, -620, 1, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
+    this.game.playerBullets.push(new Bullet(this.x - 5, this.y - 15, -spread, -620, 0.75, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
+    this.game.playerBullets.push(new Bullet(this.x + 5, this.y - 15, spread, -620, 0.75, "player", "#69f1ff", 4, false, "playerBullet", 34, 78));
     if (this.level >= 3) {
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -680, 2, "player", "#8ffbff", 5, false, "playerBullet", 38, 86));
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -680, 1.25, "player", "#8ffbff", 5, false, "playerBullet", 38, 86));
     }
-    this.fireTimer = 0.28 - this.level * 0.035;
+    this.fireTimer = 0.42 - this.level * 0.04;
   }
 
   updateGuard() {
@@ -86,15 +86,15 @@ export class Wingman {
       }
     }
     if (this.fireTimer <= 0) {
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 12, 0, -520, 1, "player", "#fff3a8", 4, false, "playerBullet", 30, 70));
-      this.fireTimer = 0.75 - this.level * 0.08;
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 12, 0, -520, 0.7, "player", "#fff3a8", 4, false, "playerBullet", 30, 70));
+      this.fireTimer = 0.9 - this.level * 0.08;
     }
   }
 
   updateLaser() {
     if (this.fireTimer > 0) return;
-    this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -760, 2 + this.level, "player", "#d05cff", 7, true, "laser", 42, 112));
-    this.fireTimer = 0.64 - this.level * 0.07;
+    this.game.playerBullets.push(new Bullet(this.x, this.y - 20, 0, -760, 1.4 + this.level * 0.72, "player", "#d05cff", 7, true, "laser", 42, 112));
+    this.fireTimer = 0.84 - this.level * 0.08;
   }
 
   draw(ctx) {

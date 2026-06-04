@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
-import { clamp, distanceSq } from "./utils.js?v=20260604-cutout-aspect";
+﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
+import { clamp, distanceSq } from "./utils.js?v=20260604-difficulty-tune";
 
 export class Boss {
   constructor(game, stage) {
@@ -24,8 +24,8 @@ export class Boss {
     this.dotTick = 0;
 
     this.turrets = this.level === 1 ? [
-      { ox: -62, oy: 12, hp: 54, maxHp: 54, fire: 1.1, dead: false },
-      { ox: 62, oy: 12, hp: 54, maxHp: 54, fire: 1.35, dead: false },
+      { ox: -62, oy: 12, hp: 118, maxHp: 118, fire: 1.1, dead: false },
+      { ox: 62, oy: 12, hp: 118, maxHp: 118, fire: 1.35, dead: false },
     ] : [];
     this.chargeWarn = 0;
     this.chargeActive = 0;
@@ -136,7 +136,7 @@ export class Boss {
     }
     this.shieldCoreTimer -= dt;
     if (this.shieldCoreTimer <= 0) {
-      this.shieldCore = { x: this.x, y: this.y + 78, radius: 24, hp: 42, maxHp: 42 };
+      this.shieldCore = { x: this.x, y: this.y + 78, radius: 24, hp: 105, maxHp: 105 };
       this.shieldCoreTimer = 7.6;
       this.game.toast("护盾核心展开", 1);
     }

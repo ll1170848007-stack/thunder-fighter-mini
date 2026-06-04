@@ -1,15 +1,15 @@
-﻿import { AudioSystem } from "./audio.js?v=20260604-cutout-aspect";
-import { SpriteAtlas } from "./assets.js?v=20260604-cutout-aspect";
-import { Boss } from "./boss.js?v=20260604-cutout-aspect";
-import { Enemy } from "./enemies.js?v=20260604-cutout-aspect";
-import { Input } from "./input.js?v=20260604-cutout-aspect";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-cutout-aspect";
-import { Player } from "./player.js?v=20260604-cutout-aspect";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-cutout-aspect";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-cutout-aspect";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-cutout-aspect";
-import { getStageWaves } from "./waves.js?v=20260604-cutout-aspect";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-cutout-aspect";
+﻿import { AudioSystem } from "./audio.js?v=20260604-difficulty-tune";
+import { SpriteAtlas } from "./assets.js?v=20260604-difficulty-tune";
+import { Boss } from "./boss.js?v=20260604-difficulty-tune";
+import { Enemy } from "./enemies.js?v=20260604-difficulty-tune";
+import { Input } from "./input.js?v=20260604-difficulty-tune";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-difficulty-tune";
+import { Player } from "./player.js?v=20260604-difficulty-tune";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-difficulty-tune";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-difficulty-tune";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-difficulty-tune";
+import { getStageWaves } from "./waves.js?v=20260604-difficulty-tune";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-difficulty-tune";
 
 const UPGRADE_OPTIONS = [
   { id: "attack", title: "攻击 +15%", desc: "所有玩家伤害提高。", apply: (game) => { game.upgrades.attackMultiplier *= 1.15; } },
@@ -503,7 +503,7 @@ export class Game {
       this.stageScore += enemy.score;
       this.player?.onEnemyKilled(enemy);
     }
-    const dropChance = enemy.type === "miniBoss" ? 0.88 : enemy.type === "elite" ? 0.56 : 0.24;
+    const dropChance = enemy.type === "miniBoss" ? 0.78 : enemy.type === "elite" ? 0.42 : 0.16;
     if (chance(dropChance)) this.powerups.push(new PowerUp(this, randomPowerType(), enemy.x, enemy.y));
   }
 

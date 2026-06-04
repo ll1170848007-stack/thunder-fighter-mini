@@ -1,20 +1,20 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260604-cutout-aspect";
+﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260604-difficulty-tune";
 
 const TYPES = {
-  scout: { hp: 2, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScout", size: 58, pattern: "drift", minY: 72, maxY: 150 },
-  weaver: { hp: 3, speed: 92, score: 130, radius: 18, color: "#ff6b6b", fire: 0, sprite: "enemyScout", size: 60, pattern: "weave", minY: 95, maxY: 185 },
-  striker: { hp: 6, speed: 58, score: 220, radius: 24, color: "#ffb02e", fire: 2.65, sprite: "enemyStriker", size: 74, pattern: "patrol", minY: 90, maxY: 210 },
-  sentry: { hp: 8, speed: 44, score: 280, radius: 24, color: "#69f1ff", fire: 2.25, sprite: "enemyStriker", size: 72, pattern: "sentry", minY: 105, maxY: 235 },
-  bulwark: { hp: 15, speed: 34, score: 430, radius: 29, color: "#fff3a8", fire: 2.65, sprite: "enemyElite", size: 86, pattern: "bulwark", minY: 90, maxY: 240 },
-  elite: { hp: 13, speed: 42, score: 520, radius: 31, color: "#b98cff", fire: 2.1, sprite: "enemyElite", size: 92, pattern: "elite", minY: 70, maxY: 220 },
-  bomber: { hp: 4, speed: 74, score: 180, radius: 21, color: "#ff3d3d", fire: 0, sprite: "enemyScout", size: 66, pattern: "bomber", minY: 82, maxY: 190 },
-  shield: { hp: 11, speed: 38, score: 360, radius: 28, color: "#7fffd4", fire: 2.7, sprite: "enemyElite", size: 84, pattern: "shield", minY: 88, maxY: 220 },
-  laser: { hp: 8, speed: 36, score: 340, radius: 25, color: "#ff315d", fire: 3.0, sprite: "enemyStriker", size: 78, pattern: "sentry", minY: 92, maxY: 210 },
-  mineLayer: { hp: 9, speed: 34, score: 350, radius: 25, color: "#d05cff", fire: 2.4, sprite: "enemyStriker", size: 80, pattern: "patrol", minY: 96, maxY: 225 },
-  summoner: { hp: 10, speed: 30, score: 420, radius: 27, color: "#8cff5a", fire: 3.2, sprite: "enemyElite", size: 84, pattern: "sentry", minY: 88, maxY: 220 },
-  healer: { hp: 9, speed: 32, score: 390, radius: 26, color: "#8cffb0", fire: 2.8, sprite: "enemyElite", size: 82, pattern: "healer", minY: 98, maxY: 230 },
-  miniBoss: { hp: 42, speed: 24, score: 1100, radius: 43, color: "#ffb02e", fire: 1.35, sprite: "enemyElite", size: 122, pattern: "miniBoss", minY: 82, maxY: 168 },
+  scout: { hp: 5, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScout", size: 58, pattern: "drift", minY: 72, maxY: 150 },
+  weaver: { hp: 7, speed: 92, score: 130, radius: 18, color: "#ff6b6b", fire: 0, sprite: "enemyScout", size: 60, pattern: "weave", minY: 95, maxY: 185 },
+  striker: { hp: 13, speed: 58, score: 220, radius: 24, color: "#ffb02e", fire: 2.65, sprite: "enemyStriker", size: 74, pattern: "patrol", minY: 90, maxY: 210 },
+  sentry: { hp: 17, speed: 44, score: 280, radius: 24, color: "#69f1ff", fire: 2.25, sprite: "enemyStriker", size: 72, pattern: "sentry", minY: 105, maxY: 235 },
+  bulwark: { hp: 36, speed: 34, score: 430, radius: 29, color: "#fff3a8", fire: 2.65, sprite: "enemyElite", size: 86, pattern: "bulwark", minY: 90, maxY: 240 },
+  elite: { hp: 32, speed: 42, score: 520, radius: 31, color: "#b98cff", fire: 2.1, sprite: "enemyElite", size: 92, pattern: "elite", minY: 70, maxY: 220 },
+  bomber: { hp: 9, speed: 74, score: 180, radius: 21, color: "#ff3d3d", fire: 0, sprite: "enemyScout", size: 66, pattern: "bomber", minY: 82, maxY: 190 },
+  shield: { hp: 28, speed: 38, score: 360, radius: 28, color: "#7fffd4", fire: 2.7, sprite: "enemyElite", size: 84, pattern: "shield", minY: 88, maxY: 220 },
+  laser: { hp: 20, speed: 36, score: 340, radius: 25, color: "#ff315d", fire: 3.0, sprite: "enemyStriker", size: 78, pattern: "sentry", minY: 92, maxY: 210 },
+  mineLayer: { hp: 22, speed: 34, score: 350, radius: 25, color: "#d05cff", fire: 2.4, sprite: "enemyStriker", size: 80, pattern: "patrol", minY: 96, maxY: 225 },
+  summoner: { hp: 26, speed: 30, score: 420, radius: 27, color: "#8cff5a", fire: 3.2, sprite: "enemyElite", size: 84, pattern: "sentry", minY: 88, maxY: 220 },
+  healer: { hp: 23, speed: 32, score: 390, radius: 26, color: "#8cffb0", fire: 2.8, sprite: "enemyElite", size: 82, pattern: "healer", minY: 98, maxY: 230 },
+  miniBoss: { hp: 125, speed: 24, score: 1100, radius: 43, color: "#ffb02e", fire: 1.35, sprite: "enemyElite", size: 122, pattern: "miniBoss", minY: 82, maxY: 168 },
 };
 
 export class Enemy {
@@ -29,7 +29,7 @@ export class Enemy {
     this.targetY = rand(spec.minY, spec.maxY);
     this.vx = rand(-spec.speed, spec.speed) || spec.speed;
     this.vy = spec.speed + scale * 2.2;
-    this.hp = Math.ceil(spec.hp * (1 + scale * 0.055));
+    this.hp = Math.ceil(spec.hp * (1 + scale * 0.11 + this.game.stageIndex * 0.12));
     this.maxHp = this.hp;
     this.score = spec.score;
     this.radius = spec.radius;

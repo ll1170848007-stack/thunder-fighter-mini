@@ -1,7 +1,7 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-cutout-aspect";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-cutout-aspect";
-import { clamp, distanceSq } from "./utils.js?v=20260604-cutout-aspect";
+﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-difficulty-tune";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-difficulty-tune";
+import { clamp, distanceSq } from "./utils.js?v=20260604-difficulty-tune";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
@@ -111,10 +111,10 @@ export class Player {
   }
 
   currentFireDelay() {
-    let delay = this.ship.fireDelay - (this.power - 1) * 0.008;
+    let delay = this.ship.fireDelay - (this.power - 1) * 0.004;
     if (this.ship.id === "crimson") delay *= 1.55;
-    if (this.ship.id === "frost") delay *= Math.max(0.72, 1 - Math.min(8, this.frostCombo) * 0.035);
-    return Math.max(0.078, delay);
+    if (this.ship.id === "frost") delay *= Math.max(0.84, 1 - Math.min(8, this.frostCombo) * 0.018);
+    return Math.max(0.12, delay);
   }
 
   fire() {
@@ -127,10 +127,10 @@ export class Player {
   }
 
   fireFrostSpear() {
-    const offsets = this.power === 1 ? [0] : this.power === 2 ? [-10, 10] : [-16, 0, 16];
+    const offsets = this.power === 1 ? [0] : this.power === 2 ? [-10, 10] : this.fireCycle % 2 === 0 ? [-15, 15] : [0];
     const focusBoost = this.frostFocusTimer > 0 ? 1.35 : 1;
     for (const offset of offsets) {
-      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 30, offset * 1.5, -640, (this.power >= 4 ? 2 : 1.15) * focusBoost, "player", "#69f1ff", 4.5, false, "bulletFrostNeedle", 24, 92, {
+      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 30, offset * 1.5, -640, (this.power >= 4 ? 1.85 : 1.05) * focusBoost, "player", "#69f1ff", 4.5, false, "bulletFrostNeedle", 24, 92, {
         kind: "needle",
         homing: true,
         turnRate: 5.4 + this.power * 0.42 + (this.frostFocusTimer > 0 ? 2.2 : 0),
@@ -138,21 +138,21 @@ export class Player {
         pierce: this.power >= 3 ? 1 : 0,
       }));
     }
-    if (this.power >= 4) {
-      this.game.playerBullets.push(new Bullet(this.x - 26, this.y - 18, -68, -580, 1.25, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
-      this.game.playerBullets.push(new Bullet(this.x + 26, this.y - 18, 68, -580, 1.25, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
+    if (this.power >= 4 && this.fireCycle % 3 === 0) {
+      this.game.playerBullets.push(new Bullet(this.x - 26, this.y - 18, -68, -580, 1.1, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
+      this.game.playerBullets.push(new Bullet(this.x + 26, this.y - 18, 68, -580, 1.1, "player", "#bff8ff", 4.2, false, "bulletFrostShard", 40, 72, { kind: "blade", pierce: 1 }));
     }
   }
 
   fireCrimsonCannon() {
     const lanes = this.power >= 3 ? [-15, 15] : [0];
     for (const offset of lanes) {
-      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 22, offset * 0.35, -535, this.power >= 4 ? 1.7 : 1.15, "player", "#ff4b55", 4.8, false, "bulletCrimsonShell", 28, 78, {
+      this.game.playerBullets.push(new Bullet(this.x + offset, this.y - 22, offset * 0.35, -535, this.power >= 4 ? 1.55 : 1.05, "player", "#ff4b55", 4.8, false, "bulletCrimsonShell", 28, 78, {
         kind: "shell",
       }));
     }
     if (this.power >= 2 && this.fireCycle % 5 === 0) {
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -500, 1.7, "player", "#ffb02e", 5.8, false, "bulletCrimsonOrb", 46, 46, {
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -500, 1.55, "player", "#ffb02e", 5.8, false, "bulletCrimsonOrb", 46, 46, {
         kind: "shell",
         explodeRadius: this.power >= 4 ? 46 : 34,
         spriteRotation: false,
@@ -161,52 +161,52 @@ export class Player {
   }
 
   fireSolarWing() {
-    const count = this.power === 1 ? 3 : this.power === 2 ? 5 : this.power === 3 ? 7 : 9;
-    const spread = this.power >= 4 ? 0.82 : 0.66;
+    const count = this.power === 1 ? 2 : this.power === 2 ? 3 : this.power === 3 ? 4 : 5;
+    const spread = this.power >= 4 ? 0.76 : 0.58;
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0 : i / (count - 1) - 0.5;
       const angle = -Math.PI / 2 + t * spread;
       const speed = 520 + this.power * 18;
-      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.9, "player", "#ffd86a", 4.6, false, "bulletSolarFeather", 26, 78, {
+      this.game.playerBullets.push(new Bullet(this.x, this.y - 20, Math.cos(angle) * speed, Math.sin(angle) * speed, 0.78, "player", "#ffd86a", 4.6, false, "bulletSolarFeather", 26, 78, {
         kind: "blade",
         convergeX: this.x,
         convergeStrength: 0.9,
       }));
     }
-    if (this.power >= 4 && this.fireCycle % 6 === 0) {
-      this.game.playerBullets.push(new Bullet(this.x - 42, this.y - 16, -105, -500, 1.35, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 2 }));
-      this.game.playerBullets.push(new Bullet(this.x + 42, this.y - 16, 105, -500, 1.35, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 2 }));
+    if (this.power >= 4 && this.fireCycle % 9 === 0) {
+      this.game.playerBullets.push(new Bullet(this.x - 42, this.y - 16, -105, -500, 1.15, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 1 }));
+      this.game.playerBullets.push(new Bullet(this.x + 42, this.y - 16, 105, -500, 1.15, "player", "#fff3a8", 6.4, false, "bulletSolarCrescent", 58, 58, { kind: "blade", pierce: 1 }));
     }
   }
 
   fireVoidPhantom() {
-    this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -690, this.power >= 4 ? 4 : 2.8, "player", "#b56cff", this.power >= 3 ? 7 : 5.8, false, "bulletVoidRift", 34, 94, {
+    this.game.playerBullets.push(new Bullet(this.x, this.y - 32, 0, -690, this.power >= 4 ? 3.45 : 2.45, "player", "#b56cff", this.power >= 3 ? 7 : 5.8, false, "bulletVoidRift", 34, 94, {
       kind: "rift",
       dot: this.power >= 4 ? { damage: 0.85, duration: 1.2 } : null,
     }));
-    if (this.power >= 2) {
-      const splitCount = this.power >= 3 ? 3 : 2;
+    if (this.power >= 2 && this.fireCycle % 2 === 0) {
+      const splitCount = this.power >= 4 ? 2 : 1;
       this.game.playerBullets.push(new Bullet(this.x - 18, this.y - 20, -54, -540, 1.35, "player", "#7d54ff", 4.9, false, "bulletVoidBlade", 30, 88, {
         kind: "rift",
         split: true,
         splitAt: 0.3,
         splitCount,
-        splitDamage: 0.9,
+        splitDamage: 0.72,
         splitSprite: "bulletVoidShard",
         splitWidth: 30,
         splitHeight: 62,
-        dot: this.power >= 4 ? { damage: 0.5, duration: 1 } : null,
+        dot: this.power >= 4 ? { damage: 0.38, duration: 1 } : null,
       }));
       this.game.playerBullets.push(new Bullet(this.x + 18, this.y - 20, 54, -540, 1.35, "player", "#7d54ff", 4.9, false, "bulletVoidBlade", 30, 88, {
         kind: "rift",
         split: true,
         splitAt: 0.3,
         splitCount,
-        splitDamage: 0.9,
+        splitDamage: 0.72,
         splitSprite: "bulletVoidShard",
         splitWidth: 30,
         splitHeight: 62,
-        dot: this.power >= 4 ? { damage: 0.5, duration: 1 } : null,
+        dot: this.power >= 4 ? { damage: 0.38, duration: 1 } : null,
       }));
     }
   }
@@ -398,7 +398,7 @@ export class Player {
     const mode = this.solarMode;
     const blades = this.solarBladePositions();
     const bladeRadius = mode === "spread" ? 19 : mode === "recall" ? 23 : 16;
-    const damage = mode === "spread" ? 0.95 : mode === "recall" ? 1.25 : 0.65;
+    const damage = mode === "spread" ? 0.72 : mode === "recall" ? 0.95 : 0.48;
     const targets = this.game.boss ? [...this.game.enemies, this.game.boss] : this.game.enemies;
 
     for (const target of targets) {
@@ -455,17 +455,17 @@ export class Player {
       shadow.tick -= dt;
       if (shadow.tick <= 0) {
         shadow.tick = 0.16;
-        const closeBonus = this.nearEnemy(72) ? 1.35 : 1;
-        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, 2.2 * closeBonus, "player", "#b56cff", 5.6, false, "bulletVoidRift", 34, 94, {
+        const closeBonus = this.nearEnemy(72) ? 1.25 : 1;
+        this.game.playerBullets.push(new Bullet(shadow.x, shadow.y - 28, 0, -690, 1.65 * closeBonus, "player", "#b56cff", 5.6, false, "bulletVoidRift", 34, 94, {
           kind: "rift",
           split: true,
           splitAt: 0.25,
-          splitCount: this.power >= 3 ? 3 : 2,
-          splitDamage: 0.95 * closeBonus,
+          splitCount: this.power >= 4 ? 2 : 1,
+          splitDamage: 0.68 * closeBonus,
           splitSprite: "bulletVoidShard",
           splitWidth: 30,
           splitHeight: 62,
-          dot: { damage: 0.65, duration: 1.1 },
+          dot: { damage: 0.42, duration: 1.1 },
           lifeTime: 1.25,
         }));
       }
