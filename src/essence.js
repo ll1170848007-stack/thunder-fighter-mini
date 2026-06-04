@@ -1,5 +1,5 @@
-import { Particle } from "./particles.js?v=20260605-balance-fix";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-balance-fix";
+import { Particle } from "./particles.js?v=20260605-essence-scroll-fix";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-essence-scroll-fix";
 
 export const ESSENCE_TYPES = {
   blue: { label: "蓝色精华", xp: 1, color: "#69f1ff", edge: "#d9fbff", radius: 7, magnetSpeed: 390, glow: 8, drift: 8 },
@@ -61,8 +61,10 @@ export class Essence {
         this.resting = true;
         this.vx = 0;
         this.vy = 0;
+        const scroll = game.essenceScrollSpeed?.() ?? 58;
+        this.homeY += scroll * dt;
+        this.y += scroll * dt;
         this.x += (this.homeX - this.x) * Math.min(1, dt * 1.8);
-        this.y += (this.homeY - this.y) * Math.min(1, dt * 1.8);
       }
     }
     const maxSpeed = this.magnetSpeed * 1.35;
@@ -72,7 +74,7 @@ export class Essence {
       this.vy = (this.vy / current) * maxSpeed;
     }
     this.x = clamp(this.x, -20, game.width + 20);
-    if (this.age > 26 || this.y > game.height + 72 || this.y < -72) this.dead = true;
+    if (this.age > 32 || this.y > game.height + 96 || this.y < -96) this.dead = true;
 
     if (this.magnetized && this.age % 0.07 < dt) {
       game.particles.push(new Particle(this.x, this.y, rand(-10, 10), rand(-10, 12), 0.14, this.color, Math.max(1.3, this.radius * 0.18)));

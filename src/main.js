@@ -1,4 +1,4 @@
-import { Game } from "./game.js?v=20260605-balance-fix";
+import { Game } from "./game.js?v=20260605-essence-scroll-fix";
 
 document.body.dataset.appReady = "booting";
 

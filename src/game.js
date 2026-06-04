@@ -1,18 +1,18 @@
-import { AudioSystem } from "./audio.js?v=20260605-balance-fix";
-import { SpriteAtlas } from "./assets.js?v=20260605-balance-fix";
-import { Boss } from "./boss.js?v=20260605-balance-fix";
-import { Bullet } from "./bullets.js?v=20260605-balance-fix";
-import { Enemy } from "./enemies.js?v=20260605-balance-fix";
-import { Essence } from "./essence.js?v=20260605-balance-fix";
-import { Input } from "./input.js?v=20260605-balance-fix";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-balance-fix";
-import { Player } from "./player.js?v=20260605-balance-fix";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-balance-fix";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-balance-fix";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-balance-fix";
-import { getStageWaves } from "./waves.js?v=20260605-balance-fix";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-balance-fix";
-import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-balance-fix";
+import { AudioSystem } from "./audio.js?v=20260605-essence-scroll-fix";
+import { SpriteAtlas } from "./assets.js?v=20260605-essence-scroll-fix";
+import { Boss } from "./boss.js?v=20260605-essence-scroll-fix";
+import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
+import { Enemy } from "./enemies.js?v=20260605-essence-scroll-fix";
+import { Essence } from "./essence.js?v=20260605-essence-scroll-fix";
+import { Input } from "./input.js?v=20260605-essence-scroll-fix";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-essence-scroll-fix";
+import { Player } from "./player.js?v=20260605-essence-scroll-fix";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-essence-scroll-fix";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-essence-scroll-fix";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-essence-scroll-fix";
+import { getStageWaves } from "./waves.js?v=20260605-essence-scroll-fix";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-essence-scroll-fix";
+import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-essence-scroll-fix";
 
 const MAX_ESSENCES = 220;
 
@@ -302,6 +302,10 @@ export class Game {
     if (this.time < 120) return 24;
     if (this.time < 240) return 38;
     return Math.min(58, 38 + Math.floor((this.time - 240) / 28));
+  }
+
+  essenceScrollSpeed() {
+    return 54 + Math.min(24, this.difficultyScale() * 3.2);
   }
 
   canSpawnEnemyBullet(priority = 0) {

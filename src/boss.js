@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-balance-fix";
-import { clamp, distanceSq } from "./utils.js?v=20260605-balance-fix";
+import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
+import { clamp, distanceSq } from "./utils.js?v=20260605-essence-scroll-fix";
 
 export class Boss {
   constructor(game, stage) {

@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-balance-fix";
-import { Particle, hitSpark } from "./particles.js?v=20260605-balance-fix";
+import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
+import { Particle, hitSpark } from "./particles.js?v=20260605-essence-scroll-fix";
 
 export const WINGMAN_INFO = {
   attack: {

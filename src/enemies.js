@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-balance-fix";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-balance-fix";
+import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-essence-scroll-fix";
 
 const TYPES = {
   scout: { hp: 3, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScoutSprite", size: 62, pattern: "drift", minY: 72, maxY: 150 },

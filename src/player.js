@@ -1,7 +1,7 @@
-import { Bullet } from "./bullets.js?v=20260605-balance-fix";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260605-balance-fix";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260605-balance-fix";
-import { clamp, distanceSq } from "./utils.js?v=20260605-balance-fix";
+import { Bullet } from "./bullets.js?v=20260605-essence-scroll-fix";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260605-essence-scroll-fix";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260605-essence-scroll-fix";
+import { clamp, distanceSq } from "./utils.js?v=20260605-essence-scroll-fix";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };

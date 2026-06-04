@@ -1,4 +1,4 @@
-﻿export class Bullet {
+export class Bullet {
   constructor(x, y, vx, vy, damage, owner, color = "#69f1ff", radius = 4, beam = false, sprite = null, width = null, height = null, options = {}) {
     this.x = x;
     this.y = y;
