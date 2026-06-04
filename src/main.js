@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260604-difficulty-tune";
+﻿import { Game } from "./game.js?v=20260604-enemy-boss-assets";
 
 document.body.dataset.appReady = "booting";
 

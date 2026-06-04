@@ -1,4 +1,4 @@
-﻿import { rand } from "./utils.js?v=20260604-difficulty-tune";
+﻿import { rand } from "./utils.js?v=20260604-enemy-boss-assets";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },

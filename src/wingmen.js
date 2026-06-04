@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
-import { Particle, hitSpark } from "./particles.js?v=20260604-difficulty-tune";
+﻿import { Bullet } from "./bullets.js?v=20260604-enemy-boss-assets";
+import { Particle, hitSpark } from "./particles.js?v=20260604-enemy-boss-assets";
 
 export const WINGMAN_INFO = {
   attack: {

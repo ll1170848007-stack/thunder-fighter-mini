@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
-import { clamp, distanceSq } from "./utils.js?v=20260604-difficulty-tune";
+﻿import { Bullet } from "./bullets.js?v=20260604-enemy-boss-assets";
+import { clamp, distanceSq } from "./utils.js?v=20260604-enemy-boss-assets";
 
 export class Boss {
   constructor(game, stage) {
@@ -13,6 +13,7 @@ export class Boss {
     this.maxHp = this.hp;
     this.name = stage.bossName;
     this.color = stage.bossColor;
+    this.sprite = ["bossCrimsonTide", "bossVioletAegis", "bossObsidianMothership"][this.level - 1] ?? "boss";
     this.dead = false;
     this.entered = false;
     this.fireTimer = 0.75;
@@ -279,7 +280,9 @@ export class Boss {
     ctx.translate(this.x, this.y);
     const drawColor = phase === 3 ? "#ff4b55" : phase === 2 ? "#ffb02e" : this.color;
     const pulse = 1 + Math.sin(this.time * 7) * (phase === 3 ? 0.04 : 0.02);
-    if (this.game.assets.draw(ctx, "boss", 0, 0, (164 + this.level * 9) * pulse, (134 + this.level * 7) * pulse, { shadowColor: drawColor, shadowBlur: 24 + phase * 5 })) {
+    const drawHeight = (172 + this.level * 18) * pulse;
+    const drawWidth = drawHeight * (this.game.assets.aspect(this.sprite) ?? 1.2);
+    if (this.game.assets.draw(ctx, this.sprite, 0, 0, drawWidth, drawHeight, { shadowColor: drawColor, shadowBlur: 24 + phase * 5 })) {
       this.drawBossOverlays(ctx, drawColor);
       ctx.restore();
       this.drawParts(ctx);

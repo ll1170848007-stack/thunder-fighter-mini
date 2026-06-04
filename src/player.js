@@ -1,7 +1,7 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-difficulty-tune";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-difficulty-tune";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-difficulty-tune";
-import { clamp, distanceSq } from "./utils.js?v=20260604-difficulty-tune";
+﻿import { Bullet } from "./bullets.js?v=20260604-enemy-boss-assets";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-enemy-boss-assets";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-enemy-boss-assets";
+import { clamp, distanceSq } from "./utils.js?v=20260604-enemy-boss-assets";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
