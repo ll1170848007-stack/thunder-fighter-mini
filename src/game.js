@@ -1,14 +1,16 @@
-import { AudioSystem } from "./audio.js?v=20260604-three-stage-4";
-import { SpriteAtlas } from "./assets.js?v=20260604-three-stage-4";
-import { Boss } from "./boss.js?v=20260604-three-stage-4";
-import { Enemy } from "./enemies.js?v=20260604-three-stage-4";
-import { Input } from "./input.js?v=20260604-three-stage-4";
-import { burst, hitSpark, Particle } from "./particles.js?v=20260604-three-stage-4";
-import { Player } from "./player.js?v=20260604-three-stage-4";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-three-stage-4";
-import { SHIPS, STAGES, chooseWeighted } from "./stages.js?v=20260604-three-stage-4";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-three-stage-4";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-three-stage-4";
+﻿import { AudioSystem } from "./audio.js?v=20260604-arcade-upgrade";
+import { SpriteAtlas } from "./assets.js?v=20260604-arcade-upgrade";
+import { Boss } from "./boss.js?v=20260604-arcade-upgrade";
+import { Enemy } from "./enemies.js?v=20260604-arcade-upgrade";
+import { Input } from "./input.js?v=20260604-arcade-upgrade";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-arcade-upgrade";
+import { Player } from "./player.js?v=20260604-arcade-upgrade";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-arcade-upgrade";
+import { drawSkillEffects, tryUseSkill, updateSkillEffects } from "./skills.js?v=20260604-arcade-upgrade";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-arcade-upgrade";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-arcade-upgrade";
+import { getStageWaves } from "./waves.js?v=20260604-arcade-upgrade";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-arcade-upgrade";
 
 export class Game {
   constructor(canvas, overlay, overlayText, startButton) {
@@ -33,7 +35,7 @@ export class Game {
       color: chance(0.75) ? "#dffbff" : "#ffbfdc",
     }));
     this.state = "menu";
-    this.shipConfig = SHIPS.seeker;
+    this.shipConfig = SHIPS[DEFAULT_SHIP_ID];
     this.stageIndex = 0;
     this.stageTime = 0;
     this.stageScore = 0;
@@ -63,15 +65,16 @@ export class Game {
   showShipSelect() {
     this.state = "select";
     this.panel.innerHTML = `
-      <h1>选择机体</h1>
-      <p id="overlayText">三种攻击风格不同，玩家弹为光梭/光束，敌弹为圆形弹幕。</p>
+      <h1>STAR RAID</h1>
+      <p id="overlayText">选择一架专属战机。E / Shift 释放技能，空格使用清屏炸弹。</p>
       <div class="ship-grid">
-        ${Object.values(SHIPS).map((ship) => `
+        ${shipList().map((ship) => `
           <button class="ship-card" type="button" data-ship="${ship.id}" style="--ship-color:${ship.color}">
-            <span class="ship-dot"></span>
+            <span class="ship-preview"><img src="${ship.preview}" alt="${ship.name}" /></span>
             <span>
-              <span class="ship-name">${ship.name} · ${ship.subtitle}</span>
-              <span class="ship-desc">${ship.description}</span>
+              <span class="ship-name">${ship.englishName} · ${ship.name}</span>
+              <span class="ship-role">${ship.role}</span>
+              <span class="ship-desc">${ship.attack} / 技能：${ship.skillName}</span>
             </span>
           </button>
         `).join("")}
@@ -80,9 +83,9 @@ export class Game {
     this.overlay.classList.remove("hidden");
   }
 
-  start(shipId = "seeker") {
+  start(shipId = DEFAULT_SHIP_ID) {
     this.audio.unlock();
-    this.shipConfig = SHIPS[shipId] ?? SHIPS.seeker;
+    this.shipConfig = SHIPS[shipId] ?? SHIPS[DEFAULT_SHIP_ID];
     this.player = new Player(this);
     this.playerBullets = [];
     this.enemyBullets = [];
@@ -90,16 +93,23 @@ export class Game {
     this.powerups = [];
     this.particles = [];
     this.wingmen = [];
+    this.skillEffects = [];
     this.boss = null;
     this.score = 0;
+    this.killCount = 0;
     this.time = 0;
+    this.runStartTime = 0;
     this.stageIndex = 0;
     this.stageTime = 0;
     this.stageScore = 0;
     this.toastText = "";
     this.toastTimer = 0;
-    this.spawnTimer = 0.25;
+    this.resetWaveState();
     this.bossSeen = false;
+    this.bossWarning = 0;
+    this.bossWarningName = "";
+    this.damageFlash = 0;
+    this.shake = 0;
     this.victoryTimer = 0;
     this.transitionTimer = 0;
     this.state = "playing";
@@ -147,6 +157,7 @@ export class Game {
       this.player.bombs -= 1;
       this.clearScreen();
     }
+    if (this.state === "playing" && (pressOnce("e") || pressOnce("shift"))) tryUseSkill(this);
     if (this.state === "playing" && pressOnce("1")) this.addWingman("attack");
     if (this.state === "playing" && pressOnce("2")) this.addWingman("guard");
     if (this.state === "playing" && pressOnce("3")) this.addWingman("laser");
@@ -156,8 +167,11 @@ export class Game {
     this.time += dt;
     this.stageTime += dt;
     this.toastTimer = Math.max(0, this.toastTimer - dt);
+    this.damageFlash = Math.max(0, this.damageFlash - dt);
+    this.shake = Math.max(0, this.shake - dt);
     this.updateStars(dt);
     this.player.update(dt, this.input);
+    updateSkillEffects(this, dt);
     this.updateList(this.wingmen, dt);
     this.spawnEnemies(dt);
     this.updateList(this.playerBullets, dt);
@@ -168,12 +182,6 @@ export class Game {
     if (this.boss) {
       this.boss.update(dt);
       if (this.boss.dead) this.killBoss();
-    } else {
-      const bossScore = this.fastMode ? 260 : this.currentStage().bossTriggerScore;
-      const bossTime = this.fastMode ? 8 : this.currentStage().bossTriggerTime;
-      if (!this.bossSeen && (this.stageScore >= bossScore || this.stageTime >= bossTime)) {
-        this.spawnBoss();
-      }
     }
     this.collisions();
     this.cleanup();
@@ -205,15 +213,106 @@ export class Game {
     }
   }
 
+  resetWaveState() {
+    this.waveIndex = 0;
+    this.activeWave = null;
+    this.waveTimer = getStageWaves(this.stageIndex)[0]?.delay ?? 0.8;
+    this.waveSpawnTimer = 0;
+    this.waveSpawned = 0;
+    this.waveCompleteTimer = null;
+  }
+
   spawnEnemies(dt) {
     if (this.boss) return;
+    if (this.bossWarning > 0) {
+      this.bossWarning -= dt;
+      if (this.bossWarning <= 0) this.spawnBoss();
+      return;
+    }
+
+    const waves = getStageWaves(this.stageIndex);
+    if (!this.activeWave && this.waveIndex >= waves.length) {
+      if (this.waveCompleteTimer == null) this.waveCompleteTimer = 2.4;
+      this.waveCompleteTimer -= dt;
+      if (!this.bossSeen && (this.enemies.length === 0 || this.waveCompleteTimer <= 0)) this.beginBossWarning();
+      return;
+    }
+
+    if (!this.activeWave) {
+      this.waveTimer -= dt;
+      if (this.waveTimer > 0) return;
+      this.activeWave = waves[this.waveIndex];
+      this.waveSpawned = 0;
+      this.waveSpawnTimer = 0;
+      if (this.activeWave.message) this.toast(this.activeWave.message, 1.15);
+    }
+
     if (this.enemies.length >= this.currentStage().maxEnemies) return;
-    this.spawnTimer -= dt;
-    if (this.spawnTimer > 0) return;
-    const type = chooseWeighted(this.currentStage().enemyPool);
-    this.enemies.push(new Enemy(this, type));
-    const base = clamp(this.currentStage().spawnBase - this.difficultyScale() * 0.055, 0.5, this.currentStage().spawnBase);
-    this.spawnTimer = rand(base * 0.55, base * 1.18);
+    this.waveSpawnTimer -= dt;
+    if (this.waveSpawnTimer > 0) return;
+
+    this.spawnWaveEnemy(this.activeWave, this.waveSpawned);
+    this.waveSpawned += 1;
+    this.waveSpawnTimer = Math.max(0.16, this.activeWave.interval / (this.fastMode ? 2.2 : 1));
+
+    if (this.waveSpawned >= this.activeWave.count) {
+      this.waveIndex += 1;
+      this.activeWave = null;
+      this.waveTimer = waves[this.waveIndex]?.delay ?? 1.0;
+    }
+  }
+
+  spawnWaveEnemy(wave, index) {
+    const count = wave.count;
+    const type = Array.isArray(wave.type) ? wave.type[index % wave.type.length] : wave.type;
+    const pos = this.wavePosition(wave.formation, index, count);
+    const enemy = new Enemy(this, type, pos.x, pos.y);
+    enemy.targetY = pos.targetY;
+    enemy.anchorX = pos.anchorX ?? pos.x;
+    if (pos.vx != null) enemy.vx = pos.vx;
+    this.enemies.push(enemy);
+  }
+
+  wavePosition(formation, index, count) {
+    const lane = count <= 1 ? 0.5 : index / (count - 1);
+    const jitter = rand(-14, 14);
+    const top = -44 - index * 4;
+    if (formation === "vshape") {
+      const mid = (count - 1) / 2;
+      const offset = index - mid;
+      return { x: this.width / 2 + offset * 42 + jitter, y: top - Math.abs(offset) * 18, targetY: 92 + Math.abs(offset) * 20 };
+    }
+    if (formation === "cross") {
+      const fromLeft = index % 2 === 0;
+      const x = fromLeft ? 54 + lane * 160 : this.width - 54 - lane * 160;
+      return { x: clamp(x + jitter, 42, this.width - 42), y: top, targetY: 90 + (index % 3) * 34, vx: fromLeft ? 92 : -92 };
+    }
+    if (formation === "leftRight") {
+      const side = index % 2 === 0 ? 0 : 1;
+      const x = side === 0 ? 52 + rand(0, 42) : this.width - 52 - rand(0, 42);
+      return { x, y: top, targetY: 88 + Math.floor(index / 2) * 28, vx: side === 0 ? 70 : -70 };
+    }
+    if (formation === "centerGuard") {
+      if (index === 0) return { x: this.width / 2, y: -54, targetY: 122 };
+      const side = index % 2 === 0 ? 1 : -1;
+      return { x: this.width / 2 + side * (58 + Math.floor(index / 2) * 44), y: top, targetY: 96 + index * 12 };
+    }
+    if (formation === "elitePress") {
+      const x = this.width / 2 + (index - (count - 1) / 2) * 56;
+      return { x: clamp(x + jitter, 50, this.width - 50), y: top, targetY: 78 + (index % 2) * 46 };
+    }
+    return { x: 54 + lane * (this.width - 108) + jitter, y: top, targetY: 86 + (index % 3) * 28 };
+  }
+
+  beginBossWarning() {
+    this.bossSeen = true;
+    this.bossWarning = this.fastMode ? 0.6 : 1.5;
+    this.bossWarningName = this.currentStage().warning;
+    this.enemyBullets = [];
+    for (const enemy of this.enemies) burst(this, enemy.x, enemy.y, enemy.color, 12, 120);
+    this.enemies = [];
+    this.shake = Math.max(this.shake, 0.22);
+    this.audio.boss();
   }
 
   toast(text, duration = 1.6) {
@@ -234,7 +333,6 @@ export class Game {
   spawnBoss() {
     this.bossSeen = true;
     this.boss = new Boss(this, this.currentStage());
-    this.audio.boss();
     this.toast(`${this.currentStage().bossName} 出现！`, 2);
   }
 
@@ -242,16 +340,11 @@ export class Game {
     for (const bullet of this.playerBullets) {
       for (const enemy of this.enemies) {
         if (!bullet.dead && !enemy.dead && circleHit(bullet, enemy)) {
-          bullet.dead = true;
-          enemy.hit(bullet.damage);
-          hitSpark(this, bullet.x, bullet.y);
-          if (enemy.dead) this.killEnemy(enemy);
+          this.applyPlayerBulletHit(bullet, enemy);
         }
       }
       if (this.boss && !bullet.dead && circleHit(bullet, this.boss, -8)) {
-        bullet.dead = true;
-        this.boss.hit(bullet.damage);
-        hitSpark(this, bullet.x, bullet.y, "#69f1ff");
+        this.applyPlayerBulletHit(bullet, this.boss);
       }
     }
 
@@ -279,14 +372,55 @@ export class Game {
     }
   }
 
+  applyPlayerBulletHit(bullet, target) {
+    const wasAlive = !target.dead;
+    target.hit(bullet.damage);
+    target.applyDot?.(bullet.dot);
+    hitSpark(this, bullet.x, bullet.y, bullet.color);
+    if (bullet.explodeRadius) {
+      this.explodeBullet(bullet, target);
+      bullet.dead = true;
+    } else if (bullet.pierce > 0) {
+      bullet.pierce -= 1;
+    } else {
+      bullet.dead = true;
+    }
+    if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
+  }
+
+  explodeBullet(bullet, primaryTarget) {
+    shockwave(this, bullet.x, bullet.y, bullet.explodeRadius, bullet.color, 0.35);
+    burst(this, bullet.x, bullet.y, bullet.color, 16, 130);
+    this.shake = Math.max(this.shake, 0.08);
+    const radiusSq = bullet.explodeRadius * bullet.explodeRadius;
+    for (const enemy of this.enemies) {
+      if (enemy.dead || enemy === primaryTarget) continue;
+      const dx = enemy.x - bullet.x;
+      const dy = enemy.y - bullet.y;
+      if (dx * dx + dy * dy <= radiusSq) {
+        enemy.hit(Math.max(1, bullet.damage * 0.55));
+        if (enemy.dead) this.killEnemy(enemy);
+      }
+    }
+    if (this.boss && this.boss !== primaryTarget) {
+      const dx = this.boss.x - bullet.x;
+      const dy = this.boss.y - bullet.y;
+      if (dx * dx + dy * dy <= radiusSq) this.boss.hit(Math.max(1, bullet.damage * 0.45));
+    }
+  }
+
   playerCore() {
     return { x: this.player.x, y: this.player.y, radius: this.player.hitRadius };
   }
 
   killEnemy(enemy, score = true) {
     burst(this, enemy.x, enemy.y, enemy.color, enemy.type === "elite" ? 28 : 18, 150);
+    debris(this, enemy.x, enemy.y, "#d7e4ff", enemy.type === "elite" ? 12 : 7, 125);
+    shockwave(this, enemy.x, enemy.y, enemy.type === "elite" ? 66 : 48, enemy.color, 0.32);
     this.audio.explosion();
+    this.shake = Math.max(this.shake, enemy.type === "elite" ? 0.12 : 0.06);
     if (score) {
+      this.killCount += 1;
       this.score += enemy.score;
       this.stageScore += enemy.score;
     }
@@ -296,6 +430,8 @@ export class Game {
   killBoss() {
     burst(this, this.boss.x, this.boss.y, "#ff4fa3", 90, 260);
     burst(this, this.boss.x, this.boss.y + 20, "#69f1ff", 70, 210);
+    shockwave(this, this.boss.x, this.boss.y, 190, "#ff4fa3", 0.62);
+    this.shake = Math.max(this.shake, 0.48);
     this.audio.explosion();
     this.score += this.currentStage().bossScore;
     this.boss = null;
@@ -313,6 +449,7 @@ export class Game {
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.skillEffects = [];
     this.toast(`${this.currentStage().shortName} cleared`, 1.1);
   }
 
@@ -335,7 +472,8 @@ export class Game {
     this.stageTime = 0;
     this.stageScore = 0;
     this.bossSeen = false;
-    this.spawnTimer = 1.2;
+    this.bossWarning = 0;
+    this.resetWaveState();
     this.player.x = this.width / 2;
     this.player.y = this.height - 92;
     this.player.invincible = 2.4;
@@ -344,6 +482,7 @@ export class Game {
     this.playerBullets = [];
     this.enemies = [];
     this.powerups = [];
+    this.skillEffects = [];
     this.toast(`${this.currentStage().name} 开始`, 1.8);
     this.state = "playing";
   }
@@ -356,6 +495,9 @@ export class Game {
     this.enemyBullets = [];
     if (this.boss) this.boss.hit(45);
     burst(this, this.player.x, this.player.y, "#fff3a8", 70, 280);
+    shockwave(this, this.player.x, this.player.y, 420, "#9df8ff", 0.58);
+    this.damageFlash = Math.max(this.damageFlash, 0.28);
+    this.shake = Math.max(this.shake, 0.38);
   }
 
   cleanup() {
@@ -370,9 +512,15 @@ export class Game {
     this.state = "ended";
     this.highScore = Math.max(this.highScore, this.score);
     localStorage.setItem("starRaidHighScore", String(this.highScore));
+    const rank = this.score >= 18000 ? "S" : this.score >= 11000 ? "A" : this.score >= 6200 ? "B" : "C";
+    const minutes = Math.floor(this.time / 60);
+    const seconds = Math.floor(this.time % 60).toString().padStart(2, "0");
     this.showOverlay(
       victory ? "任务胜利" : "战机失联",
-      `机体 ${this.shipConfig.name}，分数 ${this.score}，最高分 ${this.highScore}。点击按钮重新选机，或按 R 用当前机体重开。`,
+      `
+        <span class="result-line">评级 <b>${rank}</b> / 分数 ${this.score} / 最高 ${this.highScore}</span>
+        <span class="result-line">击杀 ${this.killCount} / 用时 ${minutes}:${seconds} / 机体 ${this.shipConfig.name}</span>
+      `,
       "select",
     );
   }
@@ -390,15 +538,22 @@ export class Game {
   draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
+    ctx.save();
+    if (this.shake > 0) {
+      const amount = 7 * (this.shake / 0.48);
+      ctx.translate(rand(-amount, amount), rand(-amount, amount));
+    }
     this.drawBackground(ctx);
     for (const item of this.powerups) item.draw(ctx);
     for (const item of this.playerBullets) item.draw(ctx, this.assets);
     for (const item of this.enemies) item.draw(ctx);
     if (this.boss) this.boss.draw(ctx);
+    drawSkillEffects(this, ctx);
     for (const item of this.enemyBullets) item.draw(ctx, this.assets);
     for (const item of this.wingmen) item.draw(ctx);
     if (this.player) this.player.draw(ctx);
     for (const item of this.particles) item.draw(ctx);
+    ctx.restore();
     this.drawHud(ctx);
   }
 
@@ -409,6 +564,10 @@ export class Game {
     g.addColorStop(1, "#03050d");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, this.width, this.height);
+    if (this.boss?.phase === 3) {
+      ctx.fillStyle = "rgba(255, 45, 64, 0.08)";
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
     ctx.save();
     for (const star of this.stars) {
       ctx.globalAlpha = clamp(star.speed / 230, 0.35, 1);
@@ -440,6 +599,21 @@ export class Game {
     ctx.fillText(`生命 ${this.player.lives}`, this.width - 16, 14);
     ctx.fillText(`火力 Lv.${this.player.power}  炸弹 ${this.player.bombs}`, this.width - 16, 38);
     if (this.player.shield > 0) ctx.fillText(`护盾 ${Math.ceil(this.player.shield)}s`, this.width - 16, 62);
+    const skillReady = this.player.skillCooldown <= 0;
+    ctx.textAlign = "right";
+    ctx.fillStyle = skillReady ? "#fff3a8" : "#9fb1c4";
+    const cdText = skillReady ? "READY" : `${this.player.skillCooldown.toFixed(1)}s`;
+    ctx.fillText(`${this.shipConfig.skillName} ${cdText}`, this.width - 16, this.height - 32);
+    const cdW = 128;
+    const cdX = this.width - 16 - cdW;
+    const cdY = this.height - 12;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.fillRect(cdX, cdY, cdW, 5);
+    ctx.fillStyle = skillReady ? this.shipConfig.color : "#546070";
+    const cdP = skillReady ? 1 : 1 - clamp(this.player.skillCooldown / this.shipConfig.skillCooldown, 0, 1);
+    ctx.fillRect(cdX, cdY, cdW * cdP, 5);
+    ctx.shadowBlur = 8;
     if (this.wingmen.length) {
       const names = this.wingmen.map((wingman) => `${WINGMAN_INFO[wingman.type].name} Lv.${wingman.level}`).join(" / ");
       ctx.textAlign = "left";
@@ -452,20 +626,39 @@ export class Game {
     }
     ctx.textAlign = "center";
     ctx.fillStyle = "#c8d7e7";
-    ctx.fillText(`${this.currentStage().shortName}  ${this.shipConfig.name}`, this.width / 2, 14);
+    const waveTotal = getStageWaves(this.stageIndex).length;
+    const waveLabel = this.bossSeen ? "BOSS" : `WAVE ${Math.min(this.waveIndex + 1, waveTotal)}/${waveTotal}`;
+    ctx.fillText(`${this.currentStage().shortName}  ${waveLabel}`, this.width / 2, 14);
     if (this.boss) {
       const w = this.width - 48;
       const p = clamp(this.boss.hp / this.boss.maxHp, 0, 1);
       ctx.shadowBlur = 0;
       ctx.fillStyle = "rgba(255,255,255,0.15)";
       ctx.fillRect(24, 86, w, 10);
-      ctx.fillStyle = "#ff4fa3";
+      ctx.fillStyle = this.boss.phase === 3 ? "#ff3d3d" : this.boss.phase === 2 ? "#ffb02e" : "#ff4fa3";
       ctx.fillRect(24, 86, w * p, 10);
       ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.strokeRect(24, 86, w, 10);
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillRect(24 + w * 0.3, 84, 1, 14);
+      ctx.fillRect(24 + w * 0.65, 84, 1, 14);
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
-      ctx.fillText("BOSS", this.width / 2, 102);
+      ctx.fillText(`${this.boss.name}  PHASE ${this.boss.phase}  ${Math.max(0, Math.ceil(this.boss.hp))}/${this.boss.maxHp}`, this.width / 2, 102);
+    }
+    if (this.bossWarning > 0) {
+      const flash = Math.floor(this.bossWarning * 12) % 2 === 0;
+      ctx.fillStyle = flash ? "rgba(255, 45, 64, 0.72)" : "rgba(255, 45, 64, 0.34)";
+      ctx.fillRect(0, this.height / 2 - 34, this.width, 68);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 28px Microsoft YaHei, sans-serif";
+      ctx.fillText(this.bossWarningName || "WARNING", this.width / 2, this.height / 2 - 15);
+    }
+    if (this.damageFlash > 0) {
+      ctx.strokeStyle = `rgba(255, 45, 64, ${Math.min(0.7, this.damageFlash * 1.8)})`;
+      ctx.lineWidth = 12;
+      ctx.strokeRect(4, 4, this.width - 8, this.height - 8);
     }
     if (this.state === "paused") {
       ctx.fillStyle = "rgba(0,0,0,0.28)";
@@ -488,6 +681,9 @@ export class Game {
     this.powerups = [];
     this.particles = [];
     this.wingmen = [];
+    this.skillEffects = [];
+    this.shake = 0;
+    this.damageFlash = 0;
     requestAnimationFrame((t) => this.loop(t));
   }
 }

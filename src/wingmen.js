@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260604-three-stage-4";
-import { Particle, hitSpark } from "./particles.js?v=20260604-three-stage-4";
+﻿import { Bullet } from "./bullets.js?v=20260604-arcade-upgrade";
+import { Particle, hitSpark } from "./particles.js?v=20260604-arcade-upgrade";
 
 export const WINGMAN_INFO = {
   attack: {

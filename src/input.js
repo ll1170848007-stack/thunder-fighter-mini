@@ -1,11 +1,11 @@
-export class Input {
+﻿export class Input {
   constructor(canvas) {
     this.keys = new Set();
     this.pointer = { active: false, x: 0, y: 0 };
 
     window.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d", "p", "r"].includes(key)) {
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d", "p", "r", "e", "shift"].includes(key)) {
         event.preventDefault();
       }
       this.keys.add(key);

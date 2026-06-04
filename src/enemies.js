@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260604-three-stage-4";
-import { clamp, rand } from "./utils.js?v=20260604-three-stage-4";
+﻿import { Bullet } from "./bullets.js?v=20260604-arcade-upgrade";
+import { clamp, rand } from "./utils.js?v=20260604-arcade-upgrade";
 
 const TYPES = {
   scout: { hp: 2, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScout", size: 58, pattern: "drift", minY: 72, maxY: 150 },
@@ -35,10 +35,25 @@ export class Enemy {
     this.fireTimer = spec.fire ? rand(0.4, spec.fire) : 99;
     this.dead = false;
     this.phase = rand(0, 10);
+    this.hitFlash = 0;
+    this.dotTimer = 0;
+    this.dotDamage = 0;
+    this.dotTick = 0;
   }
 
   update(dt) {
     this.phase += dt;
+    this.hitFlash = Math.max(0, this.hitFlash - dt);
+    if (this.dotTimer > 0) {
+      this.dotTimer -= dt;
+      this.dotTick -= dt;
+      if (this.dotTick <= 0) {
+        this.dotTick = 0.24;
+        this.hp -= this.dotDamage;
+        this.hitFlash = Math.max(this.hitFlash, 0.04);
+        if (this.hp <= 0) this.dead = true;
+      }
+    }
     if (this.y < this.targetY) {
       this.y += this.vy * dt;
     } else {
@@ -109,13 +124,29 @@ export class Enemy {
 
   hit(damage) {
     this.hp -= damage;
+    this.hitFlash = 0.08;
     if (this.hp <= 0) this.dead = true;
+  }
+
+  applyDot(dot) {
+    if (!dot) return;
+    this.dotTimer = Math.max(this.dotTimer, dot.duration ?? 1);
+    this.dotDamage = Math.max(this.dotDamage, dot.damage ?? 0.5);
+    this.dotTick = Math.min(this.dotTick || 0.18, 0.18);
   }
 
   draw(ctx) {
     ctx.save();
     ctx.translate(this.x, this.y);
     if (this.game.assets.draw(ctx, this.sprite, 0, 0, this.size, this.size, { shadowColor: this.color, shadowBlur: 16 })) {
+      if (this.hitFlash > 0) {
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = Math.min(0.75, this.hitFlash * 8);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
       return;
     }

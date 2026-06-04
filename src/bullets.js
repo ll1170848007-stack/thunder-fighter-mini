@@ -1,4 +1,4 @@
-export class Bullet {
+﻿export class Bullet {
   constructor(x, y, vx, vy, damage, owner, color = "#69f1ff", radius = 4, beam = false, sprite = null, width = null, height = null, options = {}) {
     this.x = x;
     this.y = y;
@@ -12,57 +12,106 @@ export class Bullet {
     this.sprite = sprite;
     this.width = width;
     this.height = height;
+    this.kind = options.kind ?? (beam ? "laser" : "bolt");
     this.homing = options.homing ?? false;
     this.turnRate = options.turnRate ?? 5;
     this.maxSpeed = options.maxSpeed ?? Math.hypot(vx, vy);
     this.pierce = options.pierce ?? 0;
+    this.explodeRadius = options.explodeRadius ?? 0;
+    this.dot = options.dot ?? null;
+    this.convergeX = options.convergeX ?? null;
+    this.convergeStrength = options.convergeStrength ?? 0;
+    this.split = options.split ?? false;
+    this.splitAt = options.splitAt ?? 0.32;
+    this.splitCount = options.splitCount ?? 3;
+    this.splitSpeed = options.splitSpeed ?? 430;
+    this.splitDamage = options.splitDamage ?? 1;
+    this.splitDone = false;
+    this.lifeTime = options.lifeTime ?? 4;
     this.age = 0;
     this.dead = false;
   }
 
   update(dt, game) {
     this.age += dt;
-    if (this.homing && this.owner === "player") {
-      const targets = [...game.enemies];
-      if (game.boss) targets.push(game.boss);
-      let best = null;
-      let bestDist = Infinity;
-      for (const target of targets) {
-        if (target.dead) continue;
-        const dx = target.x - this.x;
-        const dy = target.y - this.y;
-        const dist = dx * dx + dy * dy;
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = target;
-        }
-      }
-      if (best) {
-        const desired = Math.atan2(best.y - this.y, best.x - this.x);
-        const current = Math.atan2(this.vy, this.vx);
-        let delta = desired - current;
-        while (delta > Math.PI) delta -= Math.PI * 2;
-        while (delta < -Math.PI) delta += Math.PI * 2;
-        const next = current + Math.max(-this.turnRate * dt, Math.min(this.turnRate * dt, delta));
-        this.vx = Math.cos(next) * this.maxSpeed;
-        this.vy = Math.sin(next) * this.maxSpeed;
-      }
+    if (this.homing && this.owner === "player") this.updateHoming(dt, game);
+    if (this.convergeX != null) {
+      this.vx += (this.convergeX - this.x) * this.convergeStrength * dt;
     }
+    if (this.split && !this.splitDone && this.age >= this.splitAt) this.performSplit(game);
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    if (this.y < -40 || this.y > game.height + 50 || this.x < -50 || this.x > game.width + 50) this.dead = true;
+    if (this.age > this.lifeTime || this.y < -80 || this.y > game.height + 80 || this.x < -80 || this.x > game.width + 80) {
+      this.dead = true;
+    }
+  }
+
+  updateHoming(dt, game) {
+    const targets = [...game.enemies];
+    if (game.boss) targets.push(game.boss);
+    let best = null;
+    let bestDist = Infinity;
+    for (const target of targets) {
+      if (target.dead) continue;
+      const dx = target.x - this.x;
+      const dy = target.y - this.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = target;
+      }
+    }
+    if (!best) return;
+    const desired = Math.atan2(best.y - this.y, best.x - this.x);
+    const current = Math.atan2(this.vy, this.vx);
+    let delta = desired - current;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    const next = current + Math.max(-this.turnRate * dt, Math.min(this.turnRate * dt, delta));
+    this.vx = Math.cos(next) * this.maxSpeed;
+    this.vy = Math.sin(next) * this.maxSpeed;
+  }
+
+  performSplit(game) {
+    this.splitDone = true;
+    const base = -Math.PI / 2;
+    const spread = 0.52;
+    for (let i = 0; i < this.splitCount; i++) {
+      const t = this.splitCount === 1 ? 0 : i / (this.splitCount - 1) - 0.5;
+      const a = base + t * spread;
+      game.playerBullets.push(new Bullet(
+        this.x,
+        this.y,
+        Math.cos(a) * this.splitSpeed,
+        Math.sin(a) * this.splitSpeed,
+        this.splitDamage,
+        "player",
+        this.color,
+        Math.max(3.2, this.radius * 0.68),
+        false,
+        null,
+        null,
+        null,
+        { kind: "riftShard", lifeTime: 1.6, dot: this.dot },
+      ));
+    }
+    this.dead = true;
   }
 
   draw(ctx) {
-    if (this.owner === "player") {
-      this.drawPlayerShot(ctx);
-    } else {
-      this.drawEnemyOrb(ctx);
-    }
+    if (this.owner === "player") this.drawPlayerShot(ctx);
+    else this.drawEnemyOrb(ctx);
   }
 
   drawPlayerShot(ctx) {
-    const speed = Math.hypot(this.vx, this.vy) || 1;
+    if (this.kind === "blade") return this.drawBlade(ctx);
+    if (this.kind === "shell") return this.drawShell(ctx);
+    if (this.kind === "rift" || this.kind === "riftShard") return this.drawRift(ctx);
+    if (this.kind === "needle") return this.drawNeedle(ctx);
+    return this.drawBolt(ctx);
+  }
+
+  drawBolt(ctx) {
     const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
     const length = this.beam ? this.radius * 8 : this.radius * 5.5;
     const width = this.beam ? this.radius * 0.95 : this.radius * 1.25;
@@ -86,16 +135,117 @@ export class Bullet {
     ctx.globalAlpha = 0.75;
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(-Math.max(1, width * 0.16), -length * 0.34, Math.max(2, width * 0.32), length * 0.55);
-    ctx.globalAlpha = 0.24;
+    ctx.restore();
+  }
+
+  drawNeedle(ctx) {
+    const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+    const len = this.radius * 7.2;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(angle);
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -len * 0.56);
+    ctx.lineTo(0, len * 0.5);
+    ctx.stroke();
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 4;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(0, -len * 0.42);
+    ctx.lineTo(0, len * 0.36);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawBlade(ctx) {
+    const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+    const len = this.radius * 5.7;
+    const w = this.radius * 2.1;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(angle);
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 14;
     ctx.fillStyle = this.color;
-    ctx.fillRect(-width * 0.28, length * 0.25, width * 0.56, Math.min(24, speed * 0.025));
+    ctx.beginPath();
+    ctx.moveTo(0, -len);
+    ctx.lineTo(w, -len * 0.1);
+    ctx.lineTo(w * 0.2, len * 0.8);
+    ctx.lineTo(-w, len * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(0, -len * 0.72);
+    ctx.lineTo(w * 0.28, -len * 0.08);
+    ctx.lineTo(0, len * 0.48);
+    ctx.lineTo(-w * 0.22, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawShell(ctx) {
+    const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+    const len = this.radius * 4.4;
+    const w = this.radius * 2.2;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(angle);
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 18;
+    const gradient = ctx.createLinearGradient(0, -len, 0, len);
+    gradient.addColorStop(0, "#ffffff");
+    gradient.addColorStop(0.36, this.color);
+    gradient.addColorStop(1, "#3b080c");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect?.(-w / 2, -len / 2, w, len, w / 2);
+    if (!ctx.roundRect) {
+      ctx.ellipse(0, 0, w / 2, len / 2, 0, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawRift(ctx) {
+    const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
+    const len = this.radius * (this.kind === "riftShard" ? 4 : 5.6);
+    const w = this.radius * (this.kind === "riftShard" ? 1.5 : 2.2);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(angle + Math.sin(this.age * 18) * 0.08);
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -len);
+    ctx.lineTo(w * 0.9, -len * 0.15);
+    ctx.lineTo(w * 0.24, len * 0.1);
+    ctx.lineTo(w * 0.62, len * 0.78);
+    ctx.lineTo(0, len * 0.42);
+    ctx.lineTo(-w * 0.85, len * 0.9);
+    ctx.lineTo(-w * 0.26, 0);
+    ctx.lineTo(-w, -len * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.restore();
   }
 
   drawEnemyOrb(ctx) {
     const pulse = 1 + Math.sin(this.age * 18) * 0.08;
     const r = (this.beam ? this.radius * 1.45 : this.radius) * pulse;
-    const glow = r * (this.owner === "enemy" ? 3.2 : 3.6);
+    const glow = r * 3.2;
     ctx.save();
     const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glow);
     gradient.addColorStop(0, "#ffffff");

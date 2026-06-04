@@ -1,4 +1,4 @@
-import { Game } from "./game.js?v=20260604-three-stage-4";
+﻿import { Game } from "./game.js?v=20260604-arcade-upgrade";
 
 document.body.dataset.appReady = "booting";
 

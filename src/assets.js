@@ -1,4 +1,4 @@
-const CELLS = {
+﻿const CELLS = {
   player: [0, 0],
   wingAttack: [1, 0],
   wingGuard: [2, 0],
@@ -17,10 +17,18 @@ const CELLS = {
   wingPickup: [3, 3],
 };
 
+const EXTRA_SPRITES = {
+  playerFrostSpear: "./assets/player_frost_spear_sprite.png",
+  playerCrimsonCannon: "./assets/player_crimson_cannon_sprite.png",
+  playerSolarWing: "./assets/player_solar_wing_sprite.png",
+  playerVoidPhantom: "./assets/player_void_phantom_sprite.png",
+};
+
 export class SpriteAtlas {
   constructor(src = "./assets/neon-sprite-atlas.png") {
     this.image = new Image();
     this.loaded = false;
+    this.extra = new Map();
     this.ready = new Promise((resolve, reject) => {
       this.image.onload = () => {
         this.loaded = true;
@@ -29,9 +37,37 @@ export class SpriteAtlas {
       this.image.onerror = reject;
     });
     this.image.src = src;
+
+    for (const [id, url] of Object.entries(EXTRA_SPRITES)) {
+      const image = new Image();
+      const entry = { image, loaded: false };
+      image.onload = () => {
+        entry.loaded = true;
+      };
+      image.src = url;
+      this.extra.set(id, entry);
+    }
   }
 
   draw(ctx, id, x, y, width, height, options = {}) {
+    const extra = this.extra.get(id);
+    if (extra?.loaded) {
+      ctx.save();
+      if (options.alpha != null) ctx.globalAlpha = options.alpha;
+      if (options.shadowColor) {
+        ctx.shadowColor = options.shadowColor;
+        ctx.shadowBlur = options.shadowBlur ?? 18;
+      }
+      if (options.rotation) {
+        ctx.translate(x, y);
+        ctx.rotate(options.rotation);
+        ctx.drawImage(extra.image, -width / 2, -height / 2, width, height);
+      } else {
+        ctx.drawImage(extra.image, x - width / 2, y - height / 2, width, height);
+      }
+      ctx.restore();
+      return true;
+    }
     if (!this.loaded || !CELLS[id]) return false;
     const [col, row] = CELLS[id];
     const cellW = this.image.naturalWidth / 4;

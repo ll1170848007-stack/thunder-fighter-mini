@@ -12,23 +12,20 @@
         <canvas id="gameCanvas" width="480" height="720"></canvas>
         <div id="overlay" class="overlay">
           <div class="panel">
-            <h1>星穹突击队</h1>
-            <p id="overlayText">方向键 / WASD 移动，自动射击。鼠标或触摸可拖动战机。</p>
+            <h1>STAR RAID</h1>
+            <p id="overlayText">星穹突击队</p>
             <button id="startButton" type="button" data-action="select">选择机体</button>
           </div>
         </div>
       </section>
-      <aside class="side">
-        <h2>星穹突击队</h2>
-        <dl>
-          <div><dt>移动</dt><dd>方向键 / WASD / 拖动</dd></div>
-          <div><dt>炸弹</dt><dd>空格</dd></div>
-          <div><dt>暂停</dt><dd>P</dd></div>
-          <div><dt>重开</dt><dd>R</dd></div>
-        </dl>
-        <p>原创霓虹街机竖版飞行射击小游戏，本地运行，不依赖联网素材。</p>
-      </aside>
+      <section class="command-strip" aria-label="操作方式">
+        <span>移动 WASD / 方向键 / 拖动</span>
+        <span>技能 E / Shift</span>
+        <span>炸弹 Space</span>
+        <span>暂停 P</span>
+        <span>重开 R</span>
+      </section>
     </main>
-    <script type="module" src="./src/main.js?v=20260604-three-stage-4"></script>
+    <script type="module" src="./src/main.js?v=20260604-arcade-upgrade"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { rand } from "./utils.js?v=20260604-three-stage-4";
+﻿import { rand } from "./utils.js?v=20260604-arcade-upgrade";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },

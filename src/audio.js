@@ -1,4 +1,4 @@
-export class AudioSystem {
+﻿export class AudioSystem {
   constructor() {
     this.context = null;
     this.enabled = true;
