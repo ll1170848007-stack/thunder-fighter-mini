@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>星穹突击队</title>
+    <link rel="stylesheet" href="./styles/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="game-wrap" aria-label="星穹突击队游戏区域">
+        <canvas id="gameCanvas" width="480" height="720"></canvas>
+        <div id="overlay" class="overlay">
+          <div class="panel">
+            <h1>星穹突击队</h1>
+            <p id="overlayText">方向键 / WASD 移动，自动射击。鼠标或触摸可拖动战机。</p>
+            <button id="startButton" type="button" data-action="select">选择机体</button>
+          </div>
+        </div>
+      </section>
+      <aside class="side">
+        <h2>星穹突击队</h2>
+        <dl>
+          <div><dt>移动</dt><dd>方向键 / WASD / 拖动</dd></div>
+          <div><dt>炸弹</dt><dd>空格</dd></div>
+          <div><dt>暂停</dt><dd>P</dd></div>
+          <div><dt>重开</dt><dd>R</dd></div>
+        </dl>
+        <p>原创霓虹街机竖版飞行射击小游戏，本地运行，不依赖联网素材。</p>
+      </aside>
+    </main>
+    <script type="module" src="./src/main.js?v=20260604-three-stage-4"></script>
+  </body>
+</html>
