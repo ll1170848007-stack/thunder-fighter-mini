@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-sprite-bullets";
-import { clamp, distanceSq } from "./utils.js?v=20260604-sprite-bullets";
+﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
+import { clamp, distanceSq } from "./utils.js?v=20260604-cutout-aspect";
 
 export class Boss {
   constructor(game, stage) {

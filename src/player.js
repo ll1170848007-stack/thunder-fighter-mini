@@ -1,7 +1,7 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-sprite-bullets";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-sprite-bullets";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-sprite-bullets";
-import { clamp, distanceSq } from "./utils.js?v=20260604-sprite-bullets";
+﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260604-cutout-aspect";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260604-cutout-aspect";
+import { clamp, distanceSq } from "./utils.js?v=20260604-cutout-aspect";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
 const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
@@ -566,8 +566,9 @@ export class Player {
     ctx.translate(this.x, this.y);
     this.drawGrowth(ctx, false);
     const growth = (this.power - 1) * 3;
-    const w = this.ship.drawWidth + growth * 1.2;
     const h = this.ship.drawHeight + growth;
+    const aspect = this.game.assets.aspect(this.ship.sprite) ?? (this.ship.drawWidth / this.ship.drawHeight);
+    const w = h * aspect;
     if (!this.game.assets.draw(ctx, this.ship.sprite, 0, 0, w, h, { shadowColor: this.ship.color, shadowBlur: 18 + this.power * 3 })) {
       this.drawFallback(ctx);
     }

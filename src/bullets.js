@@ -119,8 +119,9 @@
 
   drawSpriteShot(ctx, assets) {
     const angle = Math.atan2(this.vy, this.vx) + Math.PI / 2;
-    const width = this.width ?? this.radius * 8;
     const height = this.height ?? this.radius * 18;
+    const aspect = assets.aspect?.(this.sprite) ?? ((this.width ?? this.radius * 8) / height);
+    const width = height * aspect;
     return assets.draw(ctx, this.sprite, this.x, this.y, width, height, {
       shadowColor: this.color,
       shadowBlur: Math.max(16, this.radius * 3.2),

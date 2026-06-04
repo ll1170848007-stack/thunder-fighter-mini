@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260604-sprite-bullets";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260604-sprite-bullets";
+﻿import { Bullet } from "./bullets.js?v=20260604-cutout-aspect";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260604-cutout-aspect";
 
 const TYPES = {
   scout: { hp: 2, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScout", size: 58, pattern: "drift", minY: 72, maxY: 150 },

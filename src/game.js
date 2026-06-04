@@ -1,15 +1,15 @@
-﻿import { AudioSystem } from "./audio.js?v=20260604-sprite-bullets";
-import { SpriteAtlas } from "./assets.js?v=20260604-sprite-bullets";
-import { Boss } from "./boss.js?v=20260604-sprite-bullets";
-import { Enemy } from "./enemies.js?v=20260604-sprite-bullets";
-import { Input } from "./input.js?v=20260604-sprite-bullets";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-sprite-bullets";
-import { Player } from "./player.js?v=20260604-sprite-bullets";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-sprite-bullets";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-sprite-bullets";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-sprite-bullets";
-import { getStageWaves } from "./waves.js?v=20260604-sprite-bullets";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-sprite-bullets";
+﻿import { AudioSystem } from "./audio.js?v=20260604-cutout-aspect";
+import { SpriteAtlas } from "./assets.js?v=20260604-cutout-aspect";
+import { Boss } from "./boss.js?v=20260604-cutout-aspect";
+import { Enemy } from "./enemies.js?v=20260604-cutout-aspect";
+import { Input } from "./input.js?v=20260604-cutout-aspect";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260604-cutout-aspect";
+import { Player } from "./player.js?v=20260604-cutout-aspect";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260604-cutout-aspect";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260604-cutout-aspect";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260604-cutout-aspect";
+import { getStageWaves } from "./waves.js?v=20260604-cutout-aspect";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260604-cutout-aspect";
 
 const UPGRADE_OPTIONS = [
   { id: "attack", title: "攻击 +15%", desc: "所有玩家伤害提高。", apply: (game) => { game.upgrades.attackMultiplier *= 1.15; } },

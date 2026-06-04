@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260604-sprite-bullets";
+﻿import { Game } from "./game.js?v=20260604-cutout-aspect";
 
 document.body.dataset.appReady = "booting";
 
