@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
-import { clamp, distanceSq } from "./utils.js?v=20260605-survivor-loop";
+import { Bullet } from "./bullets.js?v=20260605-balance-fix";
+import { clamp, distanceSq } from "./utils.js?v=20260605-balance-fix";
 
 export class Boss {
   constructor(game, stage) {
@@ -67,7 +67,7 @@ export class Boss {
     if (this.fireTimer <= 0) {
       this.fire();
       this.pattern = (this.pattern + 1) % 4;
-      this.fireTimer = Math.max(0.5, 1.28 - this.level * 0.08 - this.phase * 0.14);
+      this.fireTimer = Math.max(0.62, 1.42 - this.level * 0.07 - this.phase * 0.12);
     }
   }
 
@@ -122,7 +122,7 @@ export class Boss {
       if (turret.fire <= 0) {
         const pos = this.turretPos(turret);
         const base = Math.atan2(this.game.player.y - pos.y, this.game.player.x - pos.x);
-        for (const offset of [-0.18, 0.18]) this.fireAt(pos.x, pos.y, base + offset, 132, "#ff4fa3", 4.8);
+        for (const offset of [-0.18, 0.18]) this.fireAt(pos.x, pos.y, base + offset, 118, "#d84a38", 4.5);
         turret.fire = 1.25 + Math.random() * 0.35;
       }
     }
@@ -173,11 +173,11 @@ export class Boss {
     const phase = this.phase;
     if (this.pattern === 0) {
       const span = phase + 3;
-      for (let i = -span; i <= span; i++) this.fireAt(this.x + i * 12, this.y + 56, Math.PI / 2 + i * 0.08, 126 + phase * 18, this.color, 5);
+      for (let i = -span; i <= span; i++) this.fireAt(this.x + i * 12, this.y + 56, Math.PI / 2 + i * 0.08, 112 + phase * 14, "#d84a38", 4.7, { destructible: i % 3 === 0, hp: 2.4, dropEssenceChance: 0.16 });
       return;
     }
     const base = Math.atan2(this.game.player.y - this.y, this.game.player.x - this.x);
-    for (let i = -2; i <= 2; i++) this.fireAt(this.x, this.y + 52, base + i * 0.18, 136 + phase * 18, "#ffb02e", 5.2);
+    for (let i = -2; i <= 2; i++) this.fireAt(this.x, this.y + 52, base + i * 0.18, 122 + phase * 14, "#d86432", 5);
   }
 
   fireAegis() {
@@ -186,12 +186,12 @@ export class Boss {
       const count = 12 + phase * 2;
       for (let i = 0; i < count; i++) {
         const a = (Math.PI * 2 * i) / count + this.time * 0.3;
-        this.fireAt(this.shieldCore.x, this.shieldCore.y, a, 92 + phase * 12, "#b98cff", 4.5);
+        this.fireAt(this.shieldCore.x, this.shieldCore.y, a, 82 + phase * 10, "#9d496f", 4.4, { destructible: i % 4 === 0, hp: 2, dropEssenceChance: 0.14 });
       }
       return;
     }
     const lanes = 3 + phase;
-    for (let i = -lanes; i <= lanes; i++) this.fireAt(this.x + i * 16, this.y + 52, Math.PI / 2 + Math.sin(this.time + i) * 0.22, 142 + phase * 16, "#69f1ff", 4.8);
+    for (let i = -lanes; i <= lanes; i++) this.fireAt(this.x + i * 16, this.y + 52, Math.PI / 2 + Math.sin(this.time + i) * 0.22, 124 + phase * 12, "#d84a38", 4.6);
   }
 
   fireMothership() {
@@ -199,18 +199,19 @@ export class Boss {
     const count = 10 + phase * 4;
     for (let i = 0; i < count; i++) {
       const a = (Math.PI * 2 * i) / count + this.time * (0.42 + phase * 0.08);
-      this.fireAt(this.x, this.y + 30, a, 88 + phase * 18, phase === 3 ? "#ff3d3d" : "#b56cff", 4.5);
+      this.fireAt(this.x, this.y + 30, a, 78 + phase * 14, phase === 3 ? "#d84a38" : "#9d496f", 4.4, { destructible: i % 5 === 0, hp: 2.2, dropEssenceChance: 0.12 });
     }
     if (phase >= 2) {
       for (const phantom of this.phantoms) {
         const base = Math.atan2(this.game.player.y - phantom.y, this.game.player.x - phantom.x);
-        for (const offset of [-0.2, 0.2]) this.fireAt(phantom.x, phantom.y, base + offset, 118 + phase * 16, "#7d54ff", 4.6);
+        for (const offset of [-0.2, 0.2]) this.fireAt(phantom.x, phantom.y, base + offset, 104 + phase * 12, "#9d496f", 4.4);
       }
     }
   }
 
-  fireAt(x, y, angle, speed, color, radius) {
-    this.game.enemyBullets.push(new Bullet(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, "enemy", color, radius));
+  fireAt(x, y, angle, speed, color, radius, options = {}) {
+    if (!this.game.canSpawnEnemyBullet(1)) return;
+    this.game.enemyBullets.push(new Bullet(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, "enemy", color, radius, false, null, null, null, options));
   }
 
   hit(damage, bullet = null) {

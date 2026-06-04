@@ -33,6 +33,10 @@
     this.lifeTime = options.lifeTime ?? 4;
     this.spriteRotation = options.spriteRotation ?? true;
     this.spriteAlpha = options.spriteAlpha ?? 1;
+    this.destructible = options.destructible ?? false;
+    this.hp = options.hp ?? (this.destructible ? 2 : 0);
+    this.maxHp = this.hp;
+    this.dropEssenceChance = options.dropEssenceChance ?? 0;
     this.age = 0;
     this.dead = false;
   }
@@ -264,28 +268,35 @@
   drawEnemyOrb(ctx) {
     const pulse = 1 + Math.sin(this.age * 18) * 0.08;
     const r = (this.beam ? this.radius * 1.45 : this.radius) * pulse;
-    const glow = r * 3.2;
+    const glow = this.destructible ? r * 2.25 : r * 1.55;
     ctx.save();
-    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glow);
-    gradient.addColorStop(0, "#ffffff");
-    gradient.addColorStop(0.24, this.color);
-    gradient.addColorStop(0.58, `${this.color}88`);
-    gradient.addColorStop(1, `${this.color}00`);
-    ctx.fillStyle = gradient;
+    ctx.globalAlpha = this.destructible ? 0.46 : 0.28;
+    ctx.fillStyle = this.destructible ? "rgba(255,176,46,0.42)" : "rgba(255,75,85,0.35)";
     ctx.beginPath();
     ctx.arc(this.x, this.y, glow, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.shadowColor = this.color;
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = this.color;
+    ctx.shadowBlur = this.destructible ? 10 : 4;
+    ctx.fillStyle = this.destructible ? "#ff9b32" : this.color;
     ctx.beginPath();
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.arc(this.x - r * 0.28, this.y - r * 0.28, Math.max(1.4, r * 0.34), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = this.destructible ? "rgba(255,255,255,0.78)" : "rgba(70,12,20,0.9)";
+    ctx.lineWidth = this.destructible ? 1.8 : 1.1;
+    ctx.stroke();
+    if (this.destructible) {
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = "#5b1a22";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(this.x - r * 0.55, this.y - r * 0.12);
+      ctx.lineTo(this.x + r * 0.45, this.y + r * 0.22);
+      ctx.moveTo(this.x - r * 0.16, this.y + r * 0.55);
+      ctx.lineTo(this.x + r * 0.18, this.y - r * 0.5);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }

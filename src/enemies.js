@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-survivor-loop";
+import { Bullet } from "./bullets.js?v=20260605-balance-fix";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-balance-fix";
 
 const TYPES = {
   scout: { hp: 3, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScoutSprite", size: 62, pattern: "drift", minY: 72, maxY: 150 },
@@ -29,8 +29,9 @@ export class Enemy {
     this.targetY = rand(spec.minY, spec.maxY);
     this.vx = rand(-spec.speed, spec.speed) || spec.speed;
     this.vy = spec.speed + scale * 2.2;
-    const earlyRelief = this.game.stageIndex === 0 && this.game.time < 60 ? 0.78 : this.game.stageIndex === 0 && this.game.time < 150 ? 0.92 : 1;
-    this.hp = Math.max(1, Math.ceil(spec.hp * earlyRelief * (1 + scale * 0.09 + this.game.stageIndex * 0.12)));
+    const earlyRelief = this.game.time < 60 ? 0.55 : this.game.time < 150 ? 0.75 : 1;
+    const stageRelief = this.game.time < 150 ? Math.min(this.game.stageIndex * 0.06, 0.12) : this.game.stageIndex * 0.12;
+    this.hp = Math.max(1, Math.ceil(spec.hp * earlyRelief * (1 + scale * 0.075 + stageRelief)));
     this.maxHp = this.hp;
     this.score = spec.score;
     this.radius = spec.radius;
@@ -111,10 +112,11 @@ export class Enemy {
 
   nextFireDelay() {
     const d = this.game.difficultyScale();
-    if (this.type === "miniBoss") return Math.max(0.9, 1.42 - d * 0.04);
-    if (this.type === "elite") return 1.85 / (1 + d * 0.035);
-    if (this.type === "laser") return 3.1 / (1 + d * 0.03);
-    return 2.55 / (1 + d * 0.035);
+    const earlySlow = this.game.time < 90 ? 1.65 : this.game.time < 150 ? 1.28 : 1;
+    if (this.type === "miniBoss") return Math.max(1.05, 1.55 - d * 0.035) * earlySlow;
+    if (this.type === "elite") return (1.95 / (1 + d * 0.03)) * earlySlow;
+    if (this.type === "laser") return (3.35 / (1 + d * 0.025)) * earlySlow;
+    return (2.8 / (1 + d * 0.03)) * earlySlow;
   }
 
   moveInArena(dt) {
@@ -174,7 +176,7 @@ export class Enemy {
       return;
     }
     if (this.type === "mineLayer") {
-      this.game.enemyBullets.push(new Bullet(this.x, this.y + this.radius, rand(-24, 24), 44, 1, "enemy", "#d05cff", 8.5, false, null, null, null, { lifeTime: 6 }));
+      if (this.game.canSpawnEnemyBullet(1)) this.game.enemyBullets.push(new Bullet(this.x, this.y + this.radius, rand(-20, 20), 40, 1, "enemy", "#b54b68", 9, false, null, null, null, { lifeTime: 6, destructible: true, hp: 2.4, dropEssenceChance: 0.28 }));
       return;
     }
     if (this.type === "summoner") {
@@ -185,7 +187,7 @@ export class Enemy {
           this.game.enemies.push(spawn);
         }
       }
-      this.fireAtAngle(this.angleToPlayer(), 112, "#8cff5a", 4.5);
+      this.fireAtAngle(this.angleToPlayer(), 100, "#b54b68", 4.2);
       return;
     }
     if (this.type === "healer") {
@@ -195,32 +197,32 @@ export class Enemy {
           enemy.hitFlash = Math.max(enemy.hitFlash, 0.05);
         }
       }
-      this.fireAtAngle(this.angleToPlayer(), 104, "#8cffb0", 4.5);
+      this.fireAtAngle(this.angleToPlayer(), 96, "#b54b68", 4.2);
       return;
     }
     if (this.type === "miniBoss") {
       const count = 10;
       for (let i = 0; i < count; i++) {
         const a = (Math.PI * 2 * i) / count + this.phase * 0.35;
-        this.fireAtAngle(a, 92, "#ffb02e", 4.8);
+        this.fireAtAngle(a, 82, "#d86432", 4.6, { destructible: i % 3 === 0, hp: 2.2, dropEssenceChance: 0.18 }, 1);
       }
       const base = this.angleToPlayer();
-      for (const offset of [-0.18, 0, 0.18]) this.fireAtAngle(base + offset, 145, "#ff4b55", 5.2);
+      for (const offset of [-0.18, 0, 0.18]) this.fireAtAngle(base + offset, 128, "#d84a38", 5.0);
       return;
     }
     if (this.type === "sentry") {
-      for (let i = -2; i <= 2; i++) this.fireAtAngle(Math.PI / 2 + i * 0.22, 112, "#69f1ff", 4.6);
+      for (let i = -1; i <= 1; i++) this.fireAtAngle(Math.PI / 2 + i * 0.24, 96, "#d84a38", 4.3);
       return;
     }
     if (this.type === "bulwark" || this.type === "shield") {
-      for (let i = 0; i < 8; i++) this.fireAtAngle((Math.PI * 2 * i) / 8 + this.phase * 0.2, 82, this.type === "shield" ? "#7fffd4" : "#fff3a8", 4.2);
+      for (let i = 0; i < 6; i++) this.fireAtAngle((Math.PI * 2 * i) / 6 + this.phase * 0.2, 72, "#b54b68", 4.2, { destructible: i % 2 === 0, hp: 2, dropEssenceChance: 0.16 });
       return;
     }
     const angle = this.angleToPlayer();
-    const speed = this.type === "elite" ? 132 : 118;
-    this.fireAtAngle(angle, speed, "#ff6b6b", 5);
+    const speed = (this.type === "elite" ? 120 : 106) * (this.game.time < 90 ? 0.85 : 1);
+    this.fireAtAngle(angle, speed, "#d84a38", 4.6);
     if (this.type === "elite" || this.type === "striker") {
-      for (const offset of [-0.45, 0.45]) this.fireAtAngle(angle + offset, 110, "#ffb02e", 4.2);
+      if (this.game.time >= 90 || this.type === "elite") for (const offset of [-0.42, 0.42]) this.fireAtAngle(angle + offset, 98, "#b54b68", 4.0);
     }
   }
 
@@ -229,8 +231,9 @@ export class Enemy {
     return Math.atan2(p.y - this.y, p.x - this.x);
   }
 
-  fireAtAngle(angle, speed, color, radius) {
-    this.game.enemyBullets.push(new Bullet(this.x, this.y + this.radius * 0.7, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, "enemy", color, radius));
+  fireAtAngle(angle, speed, color, radius, options = {}, priority = 0) {
+    if (!this.game.canSpawnEnemyBullet(priority)) return;
+    this.game.enemyBullets.push(new Bullet(this.x, this.y + this.radius * 0.7, Math.cos(angle) * speed, Math.sin(angle) * speed, 1, "enemy", color, radius, false, null, null, null, options));
   }
 
   hit(damage, bullet = null) {
@@ -380,6 +383,10 @@ export class Enemy {
 export function chooseEnemyType(game) {
   const d = game.difficultyScale();
   const roll = Math.random();
+  if (game.time < 60) return roll < 0.35 && game.time > 28 ? "weaver" : "scout";
+  if (game.time < 120) return roll < 0.58 ? "scout" : roll < 0.82 ? "weaver" : "striker";
+  if (game.time < 180) return roll < 0.42 ? "scout" : roll < 0.62 ? "weaver" : roll < 0.84 ? "striker" : roll < 0.94 ? "sentry" : "bomber";
+  if (game.time < 300) return roll < 0.22 ? "scout" : roll < 0.42 ? "weaver" : roll < 0.64 ? "striker" : roll < 0.78 ? "sentry" : roll < 0.88 ? "bomber" : roll < 0.94 ? "laser" : "mineLayer";
   if (game.stageIndex >= 2 && roll < 0.08) return "healer";
   if (game.stageIndex >= 2 && roll < 0.15) return "summoner";
   if (game.stageIndex >= 2 && roll < 0.23) return "shield";

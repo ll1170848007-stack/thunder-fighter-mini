@@ -1,18 +1,18 @@
-﻿import { AudioSystem } from "./audio.js?v=20260605-survivor-loop";
-import { SpriteAtlas } from "./assets.js?v=20260605-survivor-loop";
-import { Boss } from "./boss.js?v=20260605-survivor-loop";
-import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
-import { Enemy } from "./enemies.js?v=20260605-survivor-loop";
-import { Essence } from "./essence.js?v=20260605-survivor-loop";
-import { Input } from "./input.js?v=20260605-survivor-loop";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-survivor-loop";
-import { Player } from "./player.js?v=20260605-survivor-loop";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-survivor-loop";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-survivor-loop";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-survivor-loop";
-import { getStageWaves } from "./waves.js?v=20260605-survivor-loop";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-survivor-loop";
-import { chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-survivor-loop";
+import { AudioSystem } from "./audio.js?v=20260605-balance-fix";
+import { SpriteAtlas } from "./assets.js?v=20260605-balance-fix";
+import { Boss } from "./boss.js?v=20260605-balance-fix";
+import { Bullet } from "./bullets.js?v=20260605-balance-fix";
+import { Enemy } from "./enemies.js?v=20260605-balance-fix";
+import { Essence } from "./essence.js?v=20260605-balance-fix";
+import { Input } from "./input.js?v=20260605-balance-fix";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-balance-fix";
+import { Player } from "./player.js?v=20260605-balance-fix";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-balance-fix";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-balance-fix";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-balance-fix";
+import { getStageWaves } from "./waves.js?v=20260605-balance-fix";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-balance-fix";
+import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-balance-fix";
 
 const MAX_ESSENCES = 220;
 
@@ -53,7 +53,7 @@ export class Game {
 
   handleOverlayClick(event) {
     const upgradeButton = event.target.closest("[data-upgrade]");
-    if (upgradeButton && (this.state === "upgrade" || this.state === "levelup")) {
+    if (upgradeButton && (this.state === "upgrade" || this.state === "levelup" || this.state === "starter_upgrade")) {
       this.applyUpgradeChoice(upgradeButton.dataset.upgrade);
       return;
     }
@@ -114,6 +114,12 @@ export class Game {
     this.xpToNext = xpToNextLevel(this.playerLevel);
     this.pendingLevelUps = 0;
     this.upgradeStacks = {};
+    this.recentUpgradeCardIds = [];
+    this.hasChosenStarterUpgrade = false;
+    this.scoutEssenceCounter = 0;
+    this.earlyAssist35 = false;
+    this.earlyAssist75 = false;
+    this.bossWaitSpawnTimer = 0;
     this.time = 0;
     this.runStartTime = 0;
     this.stageIndex = 0;
@@ -131,9 +137,8 @@ export class Game {
     this.transitionTimer = 0;
     this.coreWasDown = false;
     this.pendingUpgradeChoices = [];
-    this.state = "playing";
-    this.toast(`${this.currentStage().name} 开始`);
-    this.overlay.classList.add("hidden");
+    this.state = "starter_upgrade";
+    this.showStarterUpgradeSelect();
   }
 
   createBaseUpgrades() {
@@ -167,6 +172,41 @@ export class Game {
       solarStorm: false,
       voidDodgeChance: 0,
       voidShadowLevel: 0,
+      essenceDropBonus: 0,
+      autoShieldInterval: 0,
+      autoShieldTimer: 0,
+      shieldBreakShockwave: 0,
+      shieldDamageBonus: 0,
+      bombDamageMultiplier: 1,
+      bombInvincibleBonus: 0,
+      bombEssenceBonus: 0,
+      bombChain: false,
+      destructibleBulletDamageBonus: 0,
+      destructibleDropBonus: 0,
+      bulletDevourChance: 0,
+      critBurstChance: 0,
+      wingmanPickupBonus: 0,
+      globalMagnetTimer: 0,
+      frostComboTimeBonus: 0,
+      frostExtraJumps: 0,
+      frostExplosionRadiusBonus: 0,
+      crimsonKillChargeBonus: 0,
+      crimsonBlastRadiusBonus: 0,
+      crimsonChainBlast: false,
+      solarBladeDamageMultiplier: 1,
+      solarRecallShieldBonus: 0,
+      solarGuardBreaker: 0,
+      voidShadowDamageBonus: 0,
+      voidCritBonus: 0,
+      voidDodgeEssence: false,
+      pressureFireRate: 0,
+      levelUpMagnetPulse: 0,
+      levelUpXpRefund: 0,
+      shieldCoreBonus: 0,
+      frostBossMarkBonus: 0,
+      crimsonRareChargeBonus: 0,
+      solarBladeSpeedBonus: 0,
+      voidLowLifeDodgeBonus: 0,
     };
   }
 
@@ -230,6 +270,7 @@ export class Game {
     this.damageFlash = Math.max(0, this.damageFlash - dt);
     this.shake = Math.max(0, this.shake - dt);
     this.updateStars(dt);
+    this.updateSurvivorAssists(dt);
     this.player.update(dt, this.input);
     this.updateList(this.wingmen, dt);
     this.spawnEnemies(dt);
@@ -254,6 +295,51 @@ export class Game {
 
   updateList(list, dt) {
     for (const item of list) item.update(dt, this);
+  }
+
+  enemyBulletLimit() {
+    if (this.time < 60) return 12;
+    if (this.time < 120) return 24;
+    if (this.time < 240) return 38;
+    return Math.min(58, 38 + Math.floor((this.time - 240) / 28));
+  }
+
+  canSpawnEnemyBullet(priority = 0) {
+    const limit = this.enemyBulletLimit();
+    if (this.enemyBullets.length < limit) return true;
+    return priority > 0 && this.enemyBullets.length < limit + 6;
+  }
+
+  updateSurvivorAssists(dt) {
+    if (!this.player) return;
+    if (!this.earlyAssist35 && this.time >= 35 && this.playerLevel < 2) {
+      this.earlyAssist35 = true;
+      for (let i = 0; i < 3; i++) this.spawnEssence("blue", this.player.x + rand(-24, 24), this.player.y - 72 + rand(-12, 12));
+      this.toast("补给精华已投放", 1);
+    }
+    if (!this.earlyAssist75 && this.time >= 75 && this.playerLevel < 3) {
+      this.earlyAssist75 = true;
+      this.spawnEssence("purple", this.player.x, this.player.y - 86);
+      this.toast("紫色精华已投放", 1);
+    }
+    if (this.upgrades.autoShieldInterval > 0) {
+      this.upgrades.autoShieldTimer -= dt;
+      if (this.upgrades.autoShieldTimer <= 0) {
+        this.player.shield = Math.max(this.player.shield, 2.4 + (this.upgrades.shieldBonus ?? 0));
+        this.upgrades.autoShieldTimer = this.upgrades.autoShieldInterval;
+        this.toast("循环护盾", 0.7);
+      }
+    }
+    if (this.upgrades.globalMagnetTimer != null && this.upgrades.globalMagnetTimer > 0) {
+      this.upgrades.globalMagnetTimer -= dt;
+      if (this.upgrades.globalMagnetTimer <= 0) {
+        for (const essence of this.essences) essence.magnetized = true;
+        this.upgrades.essenceMagnetBonus += 999;
+        window.setTimeout(() => { if (this.upgrades) this.upgrades.essenceMagnetBonus = Math.max(0, this.upgrades.essenceMagnetBonus - 999); }, 1200);
+        this.upgrades.globalMagnetTimer = 35;
+        this.toast("无限吸附", 0.8);
+      }
+    }
   }
 
   syncDebugState() {
@@ -293,6 +379,20 @@ export class Game {
 
     const waves = getStageWaves(this.stageIndex);
     if (!this.activeWave && this.waveIndex >= waves.length) {
+      const minBossTime = [150, 170, 190][this.stageIndex] ?? 150;
+      if (!this.fastMode && this.time < minBossTime) {
+        this.bossWaitSpawnTimer -= dt;
+        if (this.bossWaitSpawnTimer <= 0 && this.enemies.length < Math.min(8, this.currentStage().maxEnemies)) {
+          const type = this.time < 60 ? "scout" : this.time < 120 ? (chance(0.68) ? "scout" : "weaver") : chance(0.72) ? "weaver" : "striker";
+          const pos = this.wavePosition("line", Math.floor(rand(0, 4)), 4);
+          const enemy = new Enemy(this, type, pos.x, pos.y);
+          enemy.targetY = pos.targetY;
+          enemy.anchorX = pos.x;
+          this.enemies.push(enemy);
+          this.bossWaitSpawnTimer = this.time < 60 ? 0.82 : 0.68;
+        }
+        return;
+      }
       if (this.waveCompleteTimer == null) this.waveCompleteTimer = 2.4;
       this.waveCompleteTimer -= dt;
       if (!this.bossSeen && (this.enemies.length === 0 || this.waveCompleteTimer <= 0)) this.beginBossWarning();
@@ -325,13 +425,33 @@ export class Game {
 
   spawnWaveEnemy(wave, index) {
     const count = wave.count;
-    const type = Array.isArray(wave.type) ? wave.type[index % wave.type.length] : wave.type;
+    const rawType = Array.isArray(wave.type) ? wave.type[index % wave.type.length] : wave.type;
+    const type = this.allowedEnemyType(rawType);
     const pos = this.wavePosition(wave.formation, index, count);
     const enemy = new Enemy(this, type, pos.x, pos.y);
     enemy.targetY = pos.targetY;
     enemy.anchorX = pos.anchorX ?? pos.x;
     if (pos.vx != null) enemy.vx = pos.vx;
     this.enemies.push(enemy);
+  }
+
+  allowedEnemyType(type) {
+    const t = this.time;
+    if (this.stageIndex === 0 && t < 60) {
+      if (type === "weaver" && t >= 28) return "weaver";
+      return "scout";
+    }
+    if (this.stageIndex === 0 && t < 120) {
+      if (["scout", "weaver", "striker"].includes(type)) return type;
+      return type === "miniBoss" ? "striker" : "weaver";
+    }
+    if (this.stageIndex === 0 && t < 180) {
+      if (["scout", "weaver", "striker", "sentry", "bomber"].includes(type)) return type;
+      return "striker";
+    }
+    if (t < 180 && ["laser", "mineLayer", "shield", "healer", "summoner", "elite", "miniBoss"].includes(type)) return this.stageIndex === 0 ? "striker" : "weaver";
+    if (t < 300 && ["shield", "healer", "summoner"].includes(type)) return "striker";
+    return type;
   }
 
   wavePosition(formation, index, count) {
@@ -366,6 +486,11 @@ export class Game {
   }
 
   beginBossWarning() {
+    const minTime = [150, 170, 190][this.stageIndex] ?? 150;
+    if (!this.fastMode && this.time < minTime) {
+      this.waveCompleteTimer = Math.max(this.waveCompleteTimer ?? 0, minTime - this.time);
+      return;
+    }
     this.bossSeen = true;
     this.bossWarning = this.fastMode ? 0.6 : 1.5;
     this.bossWarningName = this.currentStage().warning;
@@ -399,6 +524,11 @@ export class Game {
 
   collisions() {
     for (const bullet of this.playerBullets) {
+      for (const enemyBullet of this.enemyBullets) {
+        if (!bullet.dead && !enemyBullet.dead && enemyBullet.destructible && circleHit(bullet, enemyBullet)) {
+          this.applyDestructibleBulletHit(bullet, enemyBullet);
+        }
+      }
       for (const enemy of this.enemies) {
         if (!bullet.dead && !enemy.dead && circleHit(bullet, enemy)) {
           this.applyPlayerBulletHit(bullet, enemy);
@@ -461,6 +591,22 @@ export class Game {
     if (wasAlive && target.dead && target !== this.boss) this.killEnemy(target);
   }
 
+  applyDestructibleBulletHit(playerBullet, enemyBullet) {
+    const damage = this.playerDamage(playerBullet, null) * (1 + (this.upgrades?.destructibleBulletDamageBonus ?? 0));
+    enemyBullet.hp -= damage;
+    hitSpark(this, enemyBullet.x, enemyBullet.y, "#fff3a8");
+    if (playerBullet.pierce > 0) playerBullet.pierce -= 1;
+    else playerBullet.dead = true;
+    if (enemyBullet.hp > 0) return;
+    enemyBullet.dead = true;
+    burst(this, enemyBullet.x, enemyBullet.y, "#ffb02e", 8, 80);
+    shockwave(this, enemyBullet.x, enemyBullet.y, 30, "#ffb02e", 0.16);
+    if (chance((enemyBullet.dropEssenceChance ?? 0.18) + (this.upgrades?.destructibleDropBonus ?? 0))) this.spawnEssence("blue", enemyBullet.x, enemyBullet.y);
+    if (chance(this.upgrades?.bulletDevourChance ?? 0)) {
+      this.playerBullets.push(new Bullet(enemyBullet.x, enemyBullet.y, 0, -560, 1.1, "player", "#fff3a8", 4, false, null, null, null, { lifeTime: 1.2 }));
+    }
+  }
+
   applyBulletUpgradeStats(bullet) {
     if (bullet.upgradeApplied) return;
     bullet.pierce += this.upgrades?.pierceBonus ?? 0;
@@ -475,11 +621,18 @@ export class Game {
       if (dx * dx + dy * dy < 105 * 105) damage *= 1.12;
     }
     const voidBoost = this.player?.ship.id === "void" ? (this.player.voidCritBoost ?? 0) : 0;
-    const critChance = (this.upgrades?.critChance ?? 0) + (voidBoost > 0 ? 0.18 : 0);
+    const critChance = (this.upgrades?.critChance ?? 0) + (voidBoost > 0 ? 0.18 + (this.upgrades?.voidCritBonus ?? 0) : 0);
     if (Math.random() < critChance) {
       damage *= 1.75 * (this.upgrades?.critDamageMultiplier ?? 1) * (voidBoost > 0 ? 1.35 : 1);
       hitSpark(this, bullet.x, bullet.y, "#fff3a8");
+      if (this.upgrades?.critBurstChance && chance(this.upgrades.critBurstChance) && target) {
+        shockwave(this, target.x, target.y, 34, "#fff3a8", 0.16);
+        for (const enemy of this.enemies) {
+          if (!enemy.dead && enemy !== target && circleHit(enemy, { x: target.x, y: target.y, radius: 38 })) enemy.hit(0.65);
+        }
+      }
     }
+    if (this.player?.shield > 0) damage *= 1 + (this.upgrades?.shieldDamageBonus ?? 0);
     return damage;
   }
 
@@ -550,11 +703,29 @@ export class Game {
 
   dropEssences(enemy) {
     const scatter = (type, count) => {
-      for (let i = 0; i < count; i++) this.spawnEssence(type, enemy.x + rand(-12, 12), enemy.y + rand(-10, 10));
+      for (let i = 0; i < count; i++) this.spawnEssence(type, enemy.x, enemy.y);
     };
     const solarStormBonus = () => {
       if (this.player?.ship.id === "solar" && this.upgrades?.solarStorm && chance(0.28)) scatter("blue", 1);
     };
+    const early = this.time < 60;
+    const mid = this.time >= 60 && this.time < 150;
+    if (early && enemy.type === "scout") {
+      this.scoutEssenceCounter += 1;
+      scatter("blue", this.scoutEssenceCounter % 5 === 0 ? 2 : 1);
+      solarStormBonus();
+      return;
+    }
+    if (early && enemy.type === "weaver") {
+      scatter("blue", 1);
+      solarStormBonus();
+      return;
+    }
+    if (mid && (enemy.type === "striker" || enemy.type === "sentry")) {
+      scatter("blue", 2);
+      solarStormBonus();
+      return;
+    }
     if (enemy.type === "miniBoss") {
       scatter("purple", 3 + Math.floor(Math.random() * 2));
       scatter("red", 1);
@@ -579,13 +750,20 @@ export class Game {
       return;
     }
     scatter("blue", 1);
+    if (chance(this.upgrades?.essenceDropBonus ?? 0)) scatter("blue", 1);
     solarStormBonus();
   }
 
   gainXp(amount, essenceType = "blue", options = {}) {
     const finalAmount = amount * (this.upgrades?.xpMultiplier ?? 1);
     this.xp += finalAmount;
-    if (this.player?.ship.id === "crimson") this.player.addCrimsonCharge?.(essenceType === "red" ? 10 : essenceType === "purple" ? 5 : 1.4);
+    if (this.player?.ship.id === "crimson") {
+      const rareBonus = essenceType === "red" || essenceType === "purple" ? 1 + (this.upgrades?.crimsonRareChargeBonus ?? 0) : 1;
+      this.player.addCrimsonCharge?.((essenceType === "red" ? 10 : essenceType === "purple" ? 5 : 1.4) * rareBonus);
+    }
+    if ((essenceType === "purple" || essenceType === "red") && this.upgrades?.rareEssenceShield) {
+      this.player.shield = Math.max(this.player.shield, this.upgrades.rareEssenceShield + (this.upgrades.shieldBonus ?? 0));
+    }
     if (this.upgrades?.essenceHealChance && chance(this.upgrades.essenceHealChance)) {
       this.player.lives = Math.min(this.player.maxLives, this.player.lives + 1);
       this.toast("精华回流 +1 生命", 0.8);
@@ -594,6 +772,8 @@ export class Game {
       this.xp -= this.xpToNext;
       this.playerLevel += 1;
       this.pendingLevelUps += 1;
+      this.xp += this.upgrades?.levelUpXpRefund ?? 0;
+      if (this.upgrades?.levelUpMagnetPulse) this.upgrades.essenceMagnetBonus += 22 * this.upgrades.levelUpMagnetPulse;
       this.xpToNext = xpToNextLevel(this.playerLevel);
     }
     if (!options.deferLevelUp && this.pendingLevelUps > 0 && this.state === "playing") this.showLevelUpCards(false);
@@ -620,6 +800,20 @@ export class Game {
     this.showLevelUpCards(true);
   }
 
+  showStarterUpgradeSelect() {
+    this.player?.coreReleased();
+    this.coreWasDown = false;
+    this.pendingUpgradeChoices = chooseStarterCards(this);
+    this.panel.innerHTML = `
+      <h1>选择初始改装</h1>
+      <p id="overlayText">选择一项初始强化，决定本局成长方向。吃菱形精华升级，躲避红色敌弹。</p>
+      <div class="upgrade-grid">
+        ${this.pendingUpgradeChoices.map((upgrade) => this.renderUpgradeCard(upgrade)).join("")}
+      </div>
+    `;
+    this.overlay.classList.remove("hidden");
+  }
+
   showLevelUpCards(bossReward = false) {
     this.player?.coreReleased();
     this.state = bossReward ? "upgrade" : "levelup";
@@ -636,16 +830,22 @@ export class Game {
       <h1>${bossReward ? "阶段奖励" : `升级 Lv.${this.playerLevel}`}</h1>
       <p id="overlayText">${bossReward ? `${this.currentStage().shortName} 已突破，选择高稀有强化。` : "吸收精华完成升级，选择一张卡牌强化当前 Build。"}</p>
       <div class="upgrade-grid">
-        ${this.pendingUpgradeChoices.map((upgrade) => `
-          <button class="upgrade-card rarity-${upgrade.rarity}" type="button" data-upgrade="${upgrade.id}">
-            <span class="upgrade-rarity">${RARITY[upgrade.rarity]?.label ?? upgrade.rarity}${upgrade.ship ? " / 专属" : ""}</span>
-            <span class="upgrade-title">${upgrade.title}</span>
-            <span class="upgrade-desc">${upgrade.desc}</span>
-          </button>
-        `).join("")}
+        ${this.pendingUpgradeChoices.map((upgrade) => this.renderUpgradeCard(upgrade)).join("")}
       </div>
     `;
     this.overlay.classList.remove("hidden");
+  }
+
+  renderUpgradeCard(upgrade) {
+    const stacks = this.upgradeStacks?.[upgrade.id] ?? 0;
+    const tags = upgrade.tags?.slice(0, 2).join(" / ") ?? "build";
+    return `
+      <button class="upgrade-card rarity-${upgrade.rarity}" type="button" data-upgrade="${upgrade.id}">
+        <span class="upgrade-rarity">${RARITY[upgrade.rarity]?.label ?? upgrade.rarity}${upgrade.ship ? " / 专属" : ""} · ${tags} · ${stacks}/${upgrade.maxStacks ?? 1}</span>
+        <span class="upgrade-title">${upgrade.title}</span>
+        <span class="upgrade-desc">${upgrade.desc}</span>
+      </button>
+    `;
   }
 
   applyUpgradeChoice(id) {
@@ -653,11 +853,19 @@ export class Game {
     if (!upgrade) return;
     upgrade.apply(this);
     this.upgradeStacks[upgrade.id] = (this.upgradeStacks[upgrade.id] ?? 0) + 1;
+    this.recentUpgradeCardIds.push(upgrade.id);
+    this.recentUpgradeCardIds = this.recentUpgradeCardIds.slice(-8);
     this.player.upgrades = this.upgrades;
     this.player.pickupRadius = this.upgrades.pickupRadius;
     this.player.speed = this.shipConfig.speed * this.upgrades.speedMultiplier;
     this.toast(`强化：${upgrade.title}`, 1.2);
     this.overlay.classList.add("hidden");
+    if (this.state === "starter_upgrade") {
+      this.hasChosenStarterUpgrade = true;
+      this.state = "playing";
+      this.toast(`${this.currentStage().name} 开始`, 1.4);
+      return;
+    }
     if (this.state === "upgrade") {
       this.beginStageTransition();
       return;
@@ -728,12 +936,14 @@ export class Game {
   }
 
   clearScreen() {
+    const bombDamage = 999 * (this.upgrades?.bombDamageMultiplier ?? 1);
     for (const enemy of this.enemies) {
-      enemy.hit(999);
+      enemy.hit(bombDamage);
       this.killEnemy(enemy, true);
     }
     this.enemyBullets = [];
-    if (this.boss) this.boss.hit(45);
+    if (this.boss) this.boss.hit(45 * (this.upgrades?.bombDamageMultiplier ?? 1));
+    this.player.invincible = Math.max(this.player.invincible, this.upgrades?.bombInvincibleBonus ?? 0);
     burst(this, this.player.x, this.player.y, "#fff3a8", 70, 280);
     shockwave(this, this.player.x, this.player.y, 420, "#9df8ff", 0.58);
     this.damageFlash = Math.max(this.damageFlash, 0.28);

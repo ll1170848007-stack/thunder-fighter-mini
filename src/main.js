@@ -1,4 +1,4 @@
-﻿import { Game } from "./game.js?v=20260605-survivor-loop";
+import { Game } from "./game.js?v=20260605-balance-fix";
 
 document.body.dataset.appReady = "booting";
 

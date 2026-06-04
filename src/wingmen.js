@@ -1,5 +1,5 @@
-﻿import { Bullet } from "./bullets.js?v=20260605-survivor-loop";
-import { Particle, hitSpark } from "./particles.js?v=20260605-survivor-loop";
+import { Bullet } from "./bullets.js?v=20260605-balance-fix";
+import { Particle, hitSpark } from "./particles.js?v=20260605-balance-fix";
 
 export const WINGMAN_INFO = {
   attack: {

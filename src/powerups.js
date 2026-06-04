@@ -1,4 +1,4 @@
-﻿import { rand } from "./utils.js?v=20260605-survivor-loop";
+import { rand } from "./utils.js?v=20260605-balance-fix";
 
 export const POWERUP_TYPES = {
   power: { label: "火力", color: "#69f1ff", sprite: "power" },
