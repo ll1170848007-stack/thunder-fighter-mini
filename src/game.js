@@ -728,6 +728,7 @@ export class Game {
   }
 
   killEnemy(enemy, score = true, source = "player") {
+    if (!enemy) return;
     if (enemy.killHandled) return;
     enemy.killHandled = true;
     burst(this, enemy.x, enemy.y, enemy.color, enemy.type === "elite" ? 28 : 18, 150);
@@ -750,6 +751,15 @@ export class Game {
         if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 36 + this.upgrades.killBurstLevel * 12 })) {
           target.hit(0.8 + this.upgrades.killBurstLevel * 0.45);
           if (target.dead) this.killEnemy(target, true, "killBurst");
+        }
+      }
+    }
+    if (score && this.upgrades?.synergyDamageKillBurst && chance(this.upgrades.synergyDamageKillBurst)) {
+      shockwave(this, enemy.x, enemy.y, 42, "#ffb02e", 0.16);
+      for (const target of this.enemies) {
+        if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 42 })) {
+          target.hit(0.7);
+          if (target.dead) this.killEnemy(target, true, "synergy");
         }
       }
     }
@@ -908,15 +918,6 @@ export class Game {
         if (card.tags?.some((tag) => def.tags.includes(tag))) counts[def.key] += stacks;
       }
     }
-    if (score && this.upgrades?.synergyDamageKillBurst && chance(this.upgrades.synergyDamageKillBurst)) {
-      shockwave(this, enemy.x, enemy.y, 42, "#ffb02e", 0.16);
-      for (const target of this.enemies) {
-        if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 42 })) {
-          target.hit(0.7);
-          if (target.dead) this.killEnemy(target, true, "synergy");
-        }
-      }
-    }
     this.synergyCounts = counts;
     return counts;
   }
@@ -1060,7 +1061,14 @@ export class Game {
     const stacks = this.upgradeStacks?.[upgrade.id] ?? 0;
     const tags = upgrade.tags?.slice(0, 2).map((tag) => this.tagLabel(tag)).join(" / ") ?? "流派";
     const hit = SYNERGY_DEFS.find((def) => upgrade.tags?.some((tag) => def.tags.includes(tag)));
-    const current = hit ? (this.calculateBuildSynergy()[hit.key] ?? 0) : 0;
+    let current = 0;
+    if (hit) {
+      try {
+        current = this.calculateBuildSynergy()[hit.key] ?? 0;
+      } catch (error) {
+        console.error("Failed to render synergy preview", error);
+      }
+    }
     const synergyText = hit ? `${hit.name} ${Math.min(current, 6)}/6 -> ${Math.min(current + 1, 6)}/6` : "流派进度 +1";
     return `
       <button class="upgrade-card rarity-${upgrade.rarity}" type="button" data-upgrade="${upgrade.id}">
