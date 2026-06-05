@@ -10,10 +10,11 @@
     <main class="shell">
       <section class="game-wrap" aria-label="星穹突击队游戏区域">
         <canvas id="gameCanvas" width="480" height="720"></canvas>
+        <button id="statusButton" class="status-button" type="button" aria-label="打开当前状态">状态</button>
         <div id="overlay" class="overlay">
           <div class="panel">
-            <h1>STAR RAID</h1>
-            <p id="overlayText">星穹突击队</p>
+            <h1>星穹突击队</h1>
+            <p id="overlayText">竖版弹幕飞行射击</p>
             <button id="startButton" type="button" data-action="select">选择机体</button>
           </div>
         </div>
@@ -23,10 +24,11 @@
         <span>核心 Space</span>
         <span>备用 E / Shift</span>
         <span>炸弹 B</span>
+        <span>状态 Esc</span>
         <span>暂停 P</span>
         <span>重开 R</span>
       </section>
     </main>
-    <script type="module" src="./src/main.js?v=20260605-logic-safety-fix"></script>
+    <script type="module" src="./src/main.js?v=20260605-ui-balance-synergy"></script>
   </body>
 </html>

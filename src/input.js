@@ -5,7 +5,7 @@
 
     window.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d", "p", "r", "e", "shift", "b"].includes(key)) {
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d", "p", "r", "e", "shift", "b", "escape"].includes(key)) {
         event.preventDefault();
       }
       this.keys.add(key);

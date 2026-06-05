@@ -1,20 +1,51 @@
-import { AudioSystem } from "./audio.js?v=20260605-logic-safety-fix";
-import { SpriteAtlas } from "./assets.js?v=20260605-logic-safety-fix";
-import { Boss } from "./boss.js?v=20260605-logic-safety-fix";
-import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
-import { Enemy } from "./enemies.js?v=20260605-logic-safety-fix";
-import { Essence } from "./essence.js?v=20260605-logic-safety-fix";
-import { Input } from "./input.js?v=20260605-logic-safety-fix";
-import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-logic-safety-fix";
-import { Player } from "./player.js?v=20260605-logic-safety-fix";
-import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-logic-safety-fix";
-import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-logic-safety-fix";
-import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-logic-safety-fix";
-import { getStageWaves } from "./waves.js?v=20260605-logic-safety-fix";
-import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-logic-safety-fix";
-import { chooseStarterCards, chooseUpgradeCards, RARITY, xpToNextLevel } from "./upgrades.js?v=20260605-logic-safety-fix";
+import { AudioSystem } from "./audio.js?v=20260605-ui-balance-synergy";
+import { SpriteAtlas } from "./assets.js?v=20260605-ui-balance-synergy";
+import { Boss } from "./boss.js?v=20260605-ui-balance-synergy";
+import { Bullet } from "./bullets.js?v=20260605-ui-balance-synergy";
+import { Enemy } from "./enemies.js?v=20260605-ui-balance-synergy";
+import { Essence } from "./essence.js?v=20260605-ui-balance-synergy";
+import { Input } from "./input.js?v=20260605-ui-balance-synergy";
+import { burst, debris, hitSpark, Particle, shockwave } from "./particles.js?v=20260605-ui-balance-synergy";
+import { Player } from "./player.js?v=20260605-ui-balance-synergy";
+import { PowerUp, randomPowerType } from "./powerups.js?v=20260605-ui-balance-synergy";
+import { DEFAULT_SHIP_ID, SHIPS, STAGES, shipList } from "./stages.js?v=20260605-ui-balance-synergy";
+import { chance, circleHit, clamp, rand } from "./utils.js?v=20260605-ui-balance-synergy";
+import { getStageWaves } from "./waves.js?v=20260605-ui-balance-synergy";
+import { Wingman, WINGMAN_INFO } from "./wingmen.js?v=20260605-ui-balance-synergy";
+import { chooseStarterCards, chooseUpgradeCards, RARITY, UPGRADE_CARDS, xpToNextLevel } from "./upgrades.js?v=20260605-ui-balance-synergy";
 
 const MAX_ESSENCES = 220;
+const TAG_LABELS = {
+  damage: "输出",
+  aoe: "范围",
+  wingman: "僚机",
+  essence: "精华",
+  economy: "精华",
+  pickup: "拾取",
+  shield: "护盾",
+  survival: "生存",
+  crit: "暴击",
+  bomb: "炸弹",
+  bullet: "破弹",
+  core: "核心",
+  fireRate: "射速",
+  move: "机动",
+  frost: "专属",
+  crimson: "专属",
+  solar: "专属",
+  void: "专属",
+};
+
+const SYNERGY_DEFS = [
+  { key: "wingman", name: "僚机流", tags: ["wingman"] },
+  { key: "essence", name: "精华流", tags: ["essence", "economy", "pickup"] },
+  { key: "shield", name: "护盾流", tags: ["shield", "survival"] },
+  { key: "crit", name: "暴击流", tags: ["crit"] },
+  { key: "bomb", name: "炸弹流", tags: ["bomb"] },
+  { key: "bullet", name: "破弹流", tags: ["bullet"] },
+  { key: "damage", name: "输出流", tags: ["damage", "aoe"] },
+  { key: "exclusive", name: "机体专属", tags: ["frost", "crimson", "solar", "void"] },
+];
 
 export class Game {
   constructor(canvas, overlay, overlayText, startButton) {
@@ -26,6 +57,7 @@ export class Game {
     this.panel = overlay.querySelector(".panel");
     this.overlayText = overlayText;
     this.startButton = startButton;
+    this.statusButton = document.querySelector("#statusButton");
     this.input = new Input(canvas);
     this.audio = new AudioSystem();
     this.assets = new SpriteAtlas();
@@ -49,6 +81,7 @@ export class Game {
     this.coreWasDown = false;
     this.pendingUpgradeChoices = [];
     this.overlay.addEventListener("click", (event) => this.handleOverlayClick(event));
+    this.statusButton?.addEventListener("click", () => this.toggleStatsPanel());
   }
 
   handleOverlayClick(event) {
@@ -67,6 +100,7 @@ export class Game {
     const action = actionButton.dataset.action;
     if (action === "select") this.showShipSelect();
     if (action === "restart") this.start(this.shipConfig.id);
+    if (action === "close_stats" && this.state === "stats") this.closeStatsPanel();
     if (action === "resume" && this.state === "paused") {
       this.state = "playing";
       this.overlay.classList.add("hidden");
@@ -76,8 +110,8 @@ export class Game {
   showShipSelect() {
     this.state = "select";
     this.panel.innerHTML = `
-      <h1>STAR RAID</h1>
-      <p id="overlayText">选择一架专属战机。空格触发当前机体核心操作，B 使用清屏炸弹。</p>
+      <h1>星穹突击队</h1>
+      <p id="overlayText">选择一架专属战机。空格触发当前机体核心，B 使用清屏炸弹，Esc 查看状态。</p>
       <div class="ship-grid">
         ${shipList().map((ship) => `
           <button class="ship-card" type="button" data-ship="${ship.id}" style="--ship-color:${ship.color}">
@@ -115,6 +149,10 @@ export class Game {
     this.pendingLevelUps = 0;
     this.upgradeStacks = {};
     this.recentUpgradeCardIds = [];
+    this.synergyCounts = {};
+    this.activatedSynergies = new Set();
+    this.killStreakTimer = 0;
+    this.killStreakStacks = 0;
     this.hasChosenStarterUpgrade = false;
     this.scoutEssenceCounter = 0;
     this.earlyAssist35 = false;
@@ -209,6 +247,12 @@ export class Game {
       crimsonRareChargeBonus: 0,
       solarBladeSpeedBonus: 0,
       voidLowLifeDodgeBonus: 0,
+      synergyWingmanPickupBonus: 0,
+      synergyDestructibleEssence: 0,
+      synergyCritKillBurst: 0,
+      synergyBulletReflect: 0,
+      synergyDamageKillBurst: 0,
+      synergyKillFireRate: 0,
     };
   }
 
@@ -245,6 +289,7 @@ export class Game {
       if (!down) this.keyLatch.delete(key);
       return false;
     };
+    if (pressOnce("escape")) this.toggleStatsPanel();
     if (pressOnce("p") && (this.state === "playing" || this.state === "paused")) {
       this.state = this.state === "playing" ? "paused" : "playing";
       this.showOverlay(this.state === "paused" ? "已暂停" : "", this.state === "paused" ? "P 继续，R 重新开始。" : "", "resume");
@@ -270,6 +315,8 @@ export class Game {
     this.time += dt;
     this.stageTime += dt;
     this.toastTimer = Math.max(0, this.toastTimer - dt);
+    this.killStreakTimer = Math.max(0, (this.killStreakTimer ?? 0) - dt);
+    if (this.killStreakTimer <= 0) this.killStreakStacks = 0;
     this.damageFlash = Math.max(0, this.damageFlash - dt);
     this.shake = Math.max(0, this.shake - dt);
     this.updateStars(dt);
@@ -610,8 +657,8 @@ export class Game {
     enemyBullet.dead = true;
     burst(this, enemyBullet.x, enemyBullet.y, "#ffb02e", 8, 80);
     shockwave(this, enemyBullet.x, enemyBullet.y, 30, "#ffb02e", 0.16);
-    if (chance((enemyBullet.dropEssenceChance ?? 0.18) + (this.upgrades?.destructibleDropBonus ?? 0))) this.spawnEssence("blue", enemyBullet.x, enemyBullet.y);
-    if (chance(this.upgrades?.bulletDevourChance ?? 0)) {
+    if (chance((enemyBullet.dropEssenceChance ?? 0.18) + (this.upgrades?.destructibleDropBonus ?? 0) + (this.upgrades?.synergyDestructibleEssence ?? 0))) this.spawnEssence("blue", enemyBullet.x, enemyBullet.y);
+    if (chance((this.upgrades?.bulletDevourChance ?? 0) + (this.upgrades?.synergyBulletReflect ? 0.18 : 0))) {
       this.playerBullets.push(new Bullet(enemyBullet.x, enemyBullet.y, 0, -560, 1.1, "player", "#fff3a8", 4, false, null, null, null, { lifeTime: 1.2 }));
     }
   }
@@ -634,7 +681,7 @@ export class Game {
     if (Math.random() < critChance) {
       damage *= 1.75 * (this.upgrades?.critDamageMultiplier ?? 1) * (voidBoost > 0 ? 1.35 : 1);
       hitSpark(this, bullet.x, bullet.y, "#fff3a8");
-      if (this.upgrades?.critBurstChance && chance(this.upgrades.critBurstChance) && target) {
+      if ((this.upgrades?.critBurstChance || this.upgrades?.synergyCritKillBurst) && chance((this.upgrades.critBurstChance ?? 0) + (this.upgrades.synergyCritKillBurst ? 0.18 : 0)) && target) {
         shockwave(this, target.x, target.y, 34, "#fff3a8", 0.16);
         for (const enemy of this.enemies) {
           if (!enemy.dead && enemy !== target && circleHit(enemy, { x: target.x, y: target.y, radius: 38 })) enemy.hit(0.65);
@@ -693,6 +740,8 @@ export class Game {
       this.score += enemy.score;
       this.stageScore += enemy.score;
       this.player?.onEnemyKilled(enemy);
+      this.killStreakTimer = 2.6;
+      this.killStreakStacks = Math.min(5, (this.killStreakStacks ?? 0) + 1);
     }
     if (score) this.dropEssences(enemy, source);
     if (score && (this.upgrades?.killBurstLevel ?? 0) > 0) {
@@ -846,6 +895,131 @@ export class Game {
     this.showLevelUpCards(true);
   }
 
+  tagLabel(tag) {
+    return TAG_LABELS[tag] ?? tag;
+  }
+
+  calculateBuildSynergy() {
+    const counts = Object.fromEntries(SYNERGY_DEFS.map((item) => [item.key, 0]));
+    for (const card of UPGRADE_CARDS) {
+      const stacks = this.upgradeStacks?.[card.id] ?? 0;
+      if (stacks <= 0) continue;
+      for (const def of SYNERGY_DEFS) {
+        if (card.tags?.some((tag) => def.tags.includes(tag))) counts[def.key] += stacks;
+      }
+    }
+    if (score && this.upgrades?.synergyDamageKillBurst && chance(this.upgrades.synergyDamageKillBurst)) {
+      shockwave(this, enemy.x, enemy.y, 42, "#ffb02e", 0.16);
+      for (const target of this.enemies) {
+        if (!target.dead && target !== enemy && circleHit(target, { x: enemy.x, y: enemy.y, radius: 42 })) {
+          target.hit(0.7);
+          if (target.dead) this.killEnemy(target, true, "synergy");
+        }
+      }
+    }
+    this.synergyCounts = counts;
+    return counts;
+  }
+
+  applySynergyThresholds() {
+    const counts = this.calculateBuildSynergy();
+    const activate = (key, threshold, fn) => {
+      const id = `${key}_${threshold}`;
+      if ((counts[key] ?? 0) < threshold || this.activatedSynergies.has(id)) return;
+      this.activatedSynergies.add(id);
+      fn();
+      const def = SYNERGY_DEFS.find((item) => item.key === key);
+      this.toast(`${def?.name ?? "流派"} ${threshold}件套激活`, 1.15);
+    };
+    activate("wingman", 2, () => { this.upgrades.wingmanDamageMultiplier *= 1.1; });
+    activate("wingman", 4, () => { this.upgrades.synergyWingmanPickupBonus += 34; });
+    activate("wingman", 6, () => this.addWingman());
+    activate("essence", 2, () => { this.upgrades.xpMultiplier *= 1.08; });
+    activate("essence", 4, () => { this.upgrades.pickupRadius = Math.max(this.upgrades.pickupRadius, 92); });
+    activate("essence", 6, () => { this.upgrades.globalMagnetTimer = Math.min(this.upgrades.globalMagnetTimer || 35, 10); });
+    activate("shield", 2, () => { this.upgrades.shieldBonus += 1; });
+    activate("shield", 4, () => { this.upgrades.shieldDamageBonus += 0.1; });
+    activate("shield", 6, () => { this.upgrades.shieldBreakShockwave += 1; });
+    activate("crit", 2, () => { this.upgrades.critChance = Math.min(0.65, this.upgrades.critChance + 0.05); });
+    activate("crit", 4, () => { this.upgrades.critDamageMultiplier *= 1.2; });
+    activate("crit", 6, () => { this.upgrades.synergyCritKillBurst = 1; });
+    activate("bomb", 2, () => { this.upgrades.bombDamageMultiplier *= 1.15; });
+    activate("bomb", 4, () => { this.upgrades.bombInvincibleBonus += 0.8; });
+    activate("bomb", 6, () => { this.upgrades.bombEssenceBonus += 0.2; });
+    activate("bullet", 2, () => { this.upgrades.destructibleBulletDamageBonus += 0.3; });
+    activate("bullet", 4, () => { this.upgrades.synergyDestructibleEssence += 0.16; });
+    activate("bullet", 6, () => { this.upgrades.synergyBulletReflect = 1; });
+    activate("damage", 2, () => { this.upgrades.attackMultiplier *= 1.06; });
+    activate("damage", 4, () => { this.upgrades.synergyDamageKillBurst = 0.12; });
+    activate("damage", 6, () => { this.upgrades.synergyKillFireRate = 1; });
+    activate("exclusive", 2, () => { this.upgrades.coreCooldownMultiplier *= 0.92; });
+    activate("exclusive", 4, () => this.applyExclusiveSynergy());
+    activate("exclusive", 6, () => this.applyExclusiveSynergy());
+  }
+
+  applyExclusiveSynergy() {
+    const shipId = this.shipConfig?.id;
+    if (shipId === "frost") this.upgrades.frostExtraJumps += 1;
+    if (shipId === "crimson") this.upgrades.crimsonBossCharge += 0.28;
+    if (shipId === "solar") this.upgrades.solarSpreadSeek += 1;
+    if (shipId === "void") this.upgrades.voidShadowLevel += 1;
+  }
+
+  toggleStatsPanel() {
+    if (!this.player) return;
+    if (this.state === "stats") return this.closeStatsPanel();
+    if (!["playing", "paused"].includes(this.state)) return;
+    this.previousState = this.state;
+    this.state = "stats";
+    this.renderStatsPanel();
+  }
+
+  closeStatsPanel() {
+    const next = this.previousState === "paused" ? "paused" : "playing";
+    this.state = next;
+    this.overlay.classList.add("hidden");
+    if (next === "paused") this.showOverlay("已暂停", "按 P 继续，按 R 重新开始。", "resume");
+  }
+
+  renderStatsPanel() {
+    this.calculateBuildSynergy();
+    const core = this.player.coreStatus();
+    const wingNames = this.wingmen.length ? this.wingmen.map((wingman) => `${WINGMAN_INFO[wingman.type].name} Lv.${wingman.level}`).join(" / ") : "暂无";
+    const cards = UPGRADE_CARDS.filter((card) => (this.upgradeStacks?.[card.id] ?? 0) > 0);
+    const selectedCards = cards.map((card) => {
+      const stacks = this.upgradeStacks[card.id] ?? 0;
+      const tags = (card.tags ?? []).slice(0, 3).map((tag) => this.tagLabel(tag)).join(" / ");
+      return `<div class="chosen-card"><b>${card.title} ${stacks}/${card.maxStacks ?? 1}</b>${card.desc}<br>${tags}</div>`;
+    }).join("") || `<div class="chosen-card">还没有已选卡牌</div>`;
+    const synergies = SYNERGY_DEFS.map((def) => {
+      const count = this.synergyCounts?.[def.key] ?? 0;
+      const active = [2, 4, 6].filter((value) => count >= value);
+      return `<div class="synergy-item ${active.length ? "active" : ""}"><b>${def.name} ${Math.min(count, 6)}/6</b>${active.length ? `已激活 ${active.join(" / ")} 件` : "未激活"}</div>`;
+    }).join("");
+    this.panel.innerHTML = `
+      <div class="stats-panel">
+        <h1>当前状态</h1>
+        <div class="stats-section">
+          <h2>基础属性</h2>
+          <div class="stats-grid">
+            <div class="stats-card"><b>当前战机</b>${this.shipConfig.name}</div>
+            <div class="stats-card"><b>等级 / 经验</b>${this.playerLevel} / ${Math.floor(this.xp)}-${this.xpToNext}</div>
+            <div class="stats-card"><b>生命 / 护盾</b>${this.player.lives}/${this.player.maxLives} / ${Math.ceil(this.player.shield)}秒</div>
+            <div class="stats-card"><b>炸弹 / 火力</b>${this.player.bombs} / Lv.${this.player.power}</div>
+            <div class="stats-card"><b>僚机</b>${wingNames}</div>
+            <div class="stats-card"><b>核心状态</b>${core.label}</div>
+            <div class="stats-card"><b>攻击倍率</b>${this.upgrades.attackMultiplier.toFixed(2)}x</div>
+            <div class="stats-card"><b>拾取范围</b>${Math.round(this.player.pickupRadius + (this.upgrades.essenceMagnetBonus ?? 0))}</div>
+          </div>
+        </div>
+        <div class="stats-section"><h2>流派进度</h2><div class="synergy-grid">${synergies}</div></div>
+        <div class="stats-section"><h2>已选卡牌</h2><div class="chosen-list">${selectedCards}</div></div>
+        <button type="button" data-action="close_stats">关闭</button>
+      </div>
+    `;
+    this.overlay.classList.remove("hidden");
+  }
+
   showStarterUpgradeSelect() {
     this.player?.coreReleased();
     this.coreWasDown = false;
@@ -874,7 +1048,7 @@ export class Game {
     this.pendingUpgradeChoices = chooseUpgradeCards(this, { bossReward });
     this.panel.innerHTML = `
       <h1>${bossReward ? "阶段奖励" : `升级 Lv.${this.playerLevel}`}</h1>
-      <p id="overlayText">${bossReward ? `${this.currentStage().shortName} 已突破，选择高稀有强化。` : "吸收精华完成升级，选择一张卡牌强化当前 Build。"}</p>
+      <p id="overlayText">${bossReward ? `${this.currentStage().shortName} 已突破，选择高稀有强化。` : "吸收精华完成升级，选择一张卡牌强化当前流派。"}</p>
       <div class="upgrade-grid">
         ${this.pendingUpgradeChoices.map((upgrade) => this.renderUpgradeCard(upgrade)).join("")}
       </div>
@@ -884,12 +1058,16 @@ export class Game {
 
   renderUpgradeCard(upgrade) {
     const stacks = this.upgradeStacks?.[upgrade.id] ?? 0;
-    const tags = upgrade.tags?.slice(0, 2).join(" / ") ?? "build";
+    const tags = upgrade.tags?.slice(0, 2).map((tag) => this.tagLabel(tag)).join(" / ") ?? "流派";
+    const hit = SYNERGY_DEFS.find((def) => upgrade.tags?.some((tag) => def.tags.includes(tag)));
+    const current = hit ? (this.calculateBuildSynergy()[hit.key] ?? 0) : 0;
+    const synergyText = hit ? `${hit.name} ${Math.min(current, 6)}/6 -> ${Math.min(current + 1, 6)}/6` : "流派进度 +1";
     return `
       <button class="upgrade-card rarity-${upgrade.rarity}" type="button" data-upgrade="${upgrade.id}">
         <span class="upgrade-rarity">${RARITY[upgrade.rarity]?.label ?? upgrade.rarity}${upgrade.ship ? " / 专属" : ""} · ${tags} · ${stacks}/${upgrade.maxStacks ?? 1}</span>
         <span class="upgrade-title">${upgrade.title}</span>
         <span class="upgrade-desc">${upgrade.desc}</span>
+        <span class="upgrade-desc">${synergyText}</span>
       </button>
     `;
   }
@@ -904,6 +1082,7 @@ export class Game {
     this.player.upgrades = this.upgrades;
     this.player.pickupRadius = this.upgrades.pickupRadius;
     this.player.speed = this.shipConfig.speed * this.upgrades.speedMultiplier;
+    this.applySynergyThresholds();
     this.toast(`强化：${upgrade.title}`, 1.2);
     this.overlay.classList.add("hidden");
     if (this.state === "starter_upgrade") {
@@ -1159,7 +1338,7 @@ export class Game {
     ctx.textAlign = "center";
     ctx.fillStyle = "#c8d7e7";
     const waveTotal = getStageWaves(this.stageIndex).length;
-    const waveLabel = this.bossSeen ? "BOSS" : `WAVE ${Math.min(this.waveIndex + 1, waveTotal)}/${waveTotal}`;
+    const waveLabel = this.bossSeen ? "首领" : `波次 ${Math.min(this.waveIndex + 1, waveTotal)}/${waveTotal}`;
     ctx.fillText(`${this.currentStage().shortName}  ${waveLabel}`, this.width / 2, 14);
     if (this.boss) {
       const w = this.width - 48;
@@ -1176,7 +1355,7 @@ export class Game {
       ctx.fillRect(24 + w * 0.65, 84, 1, 14);
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
-      ctx.fillText(`${this.boss.name}  PHASE ${this.boss.phase}  ${Math.max(0, Math.ceil(this.boss.hp))}/${this.boss.maxHp}`, this.width / 2, 102);
+      ctx.fillText(`${this.boss.name}  阶段 ${this.boss.phase}  ${Math.max(0, Math.ceil(this.boss.hp))}/${this.boss.maxHp}`, this.width / 2, 102);
       if (this.boss.mechanicLabel) {
         ctx.fillStyle = "#fff3a8";
         ctx.fillText(this.boss.mechanicLabel(), this.width / 2, 122);
@@ -1189,7 +1368,7 @@ export class Game {
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffffff";
       ctx.font = "900 28px Microsoft YaHei, sans-serif";
-      ctx.fillText(this.bossWarningName || "WARNING", this.width / 2, this.height / 2 - 15);
+      ctx.fillText(this.bossWarningName || "首领警报", this.width / 2, this.height / 2 - 15);
     }
     if (this.damageFlash > 0) {
       ctx.strokeStyle = `rgba(255, 45, 64, ${Math.min(0.7, this.damageFlash * 1.8)})`;

@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
-import { clamp, distanceSq } from "./utils.js?v=20260605-logic-safety-fix";
+import { Bullet } from "./bullets.js?v=20260605-ui-balance-synergy";
+import { clamp, distanceSq } from "./utils.js?v=20260605-ui-balance-synergy";
 
 export class Boss {
   constructor(game, stage) {
@@ -34,6 +34,7 @@ export class Boss {
 
     this.shieldCore = null;
     this.shieldCoreTimer = this.level === 2 ? 4.2 : 99;
+    this.shieldVulnerableTimer = 0;
 
     this.phantoms = this.level === 3 ? [
       { x: this.x - 116, y: this.y + 28, alpha: 0.42 },
@@ -54,6 +55,7 @@ export class Boss {
   update(dt) {
     this.time += dt;
     this.hitFlash = Math.max(0, this.hitFlash - dt);
+    this.shieldVulnerableTimer = Math.max(0, this.shieldVulnerableTimer - dt);
     this.updateDot(dt);
     if (!this.entered) {
       this.y += 88 * dt;
@@ -131,15 +133,17 @@ export class Boss {
   updateShieldCore(dt) {
     if (this.shieldCore && this.shieldCore.hp <= 0) this.shieldCore = null;
     if (this.shieldCore) {
+      this.shieldCore.hitFlash = Math.max(0, (this.shieldCore.hitFlash ?? 0) - dt);
       this.shieldCore.x = this.x + Math.sin(this.time * 2.2) * 72;
       this.shieldCore.y = this.y + 78 + Math.cos(this.time * 1.8) * 10;
       return;
     }
     this.shieldCoreTimer -= dt;
     if (this.shieldCoreTimer <= 0) {
-      this.shieldCore = { x: this.x, y: this.y + 78, radius: 24, hp: 105, maxHp: 105 };
-      this.shieldCoreTimer = 7.6;
-      this.game.toast("护盾核心展开", 1);
+      const hp = Math.round(58 * (1 + Math.max(0, this.phase - 1) * 0.1));
+      this.shieldCore = { x: this.x, y: this.y + 78, radius: 30, hp, maxHp: hp, hitFlash: 0 };
+      this.shieldCoreTimer = 8.2;
+      this.game.toast("护盾核心展开：先打核心", 1);
     }
   }
 
@@ -230,16 +234,18 @@ export class Boss {
       if (this.turrets.some((item) => !item.dead)) finalDamage *= 0.52;
     }
     if (this.level === 2 && this.shieldCore) {
-      if (bullet && distanceSq(this.shieldCore, bullet) < (this.shieldCore.radius + bullet.radius) ** 2) {
+      const coreHitRadius = this.shieldCore.radius + (bullet?.radius ?? 0) + 14;
+      if (bullet && distanceSq(this.shieldCore, bullet) < coreHitRadius * coreHitRadius) {
         this.shieldCore.hp -= damage;
+        this.shieldCore.hitFlash = 0.14;
         this.hitFlash = 0.06;
         if (this.shieldCore.hp <= 0) {
-          this.game.toast("护盾核心破碎", 0.85);
+          this.breakShieldCore();
           this.shieldCore = null;
         }
         return;
       }
-      finalDamage *= 0.18;
+      finalDamage *= this.shieldVulnerableTimer > 0 ? 0.75 : 0.4;
     }
     this.hp -= finalDamage;
     this.hitFlash = 0.08;
@@ -248,8 +254,19 @@ export class Boss {
 
   extraHitTest(bullet) {
     if (this.level === 1 && this.turrets.some((item) => !item.dead && distanceSq(this.turretPos(item), bullet) < (34 + bullet.radius) ** 2)) return true;
-    if (this.level === 2 && this.shieldCore && distanceSq(this.shieldCore, bullet) < (this.shieldCore.radius + bullet.radius) ** 2) return true;
+    if (this.level === 2 && this.shieldCore && distanceSq(this.shieldCore, bullet) < (this.shieldCore.radius + bullet.radius + 14) ** 2) return true;
     return false;
+  }
+
+  breakShieldCore() {
+    this.shieldVulnerableTimer = 3;
+    this.shieldCoreTimer = 7.2;
+    this.game.enemyBullets = this.game.enemyBullets.filter((bullet) => {
+      const dx = bullet.x - this.x;
+      const dy = bullet.y - (this.y + 72);
+      return dx * dx + dy * dy > 190 * 190;
+    });
+    this.game.toast("护盾破碎，集中攻击！", 1.2);
   }
 
   applyDot(dot) {
@@ -268,7 +285,10 @@ export class Boss {
       const alive = this.turrets.filter((item) => !item.dead).length;
       return alive ? `炮台存活 ${alive}/2：主体减伤` : "炮台已清除";
     }
-    if (this.level === 2) return this.shieldCore ? "护盾核心存在：Boss 大幅减伤" : "护盾核心暂未展开";
+    if (this.level === 2) {
+      if (this.shieldVulnerableTimer > 0) return `护盾破碎：首领易伤 ${this.shieldVulnerableTimer.toFixed(1)}秒`;
+      return this.shieldCore ? "护盾核心存在：首领主体减伤 60%" : "护盾核心暂未展开";
+    }
     if (this.level === 3) return this.laserWarn > 0 || this.laserActive > 0 ? "全屏激光：站到安全区" : "幻影复制弹幕";
     return "";
   }
@@ -365,16 +385,29 @@ export class Boss {
       ctx.save();
       ctx.translate(core.x, core.y);
       ctx.shadowColor = "#b98cff";
-      ctx.shadowBlur = 22;
-      ctx.fillStyle = "#24153d";
+      ctx.shadowBlur = core.hitFlash > 0 ? 34 : 24;
+      ctx.fillStyle = core.hitFlash > 0 ? "#fff3ff" : "#24153d";
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, core.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+      ctx.globalAlpha = 0.5 + Math.sin(this.time * 8) * 0.18;
+      ctx.strokeStyle = "#ffb02e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, core.radius + 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "700 10px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("核心", 0, 3);
       ctx.fillStyle = "#b98cff";
-      ctx.fillRect(-24, -core.radius - 13, 48 * clamp(core.hp / core.maxHp, 0, 1), 4);
+      ctx.fillRect(-34, -core.radius - 16, 68 * clamp(core.hp / core.maxHp, 0, 1), 5);
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+      ctx.strokeRect(-34, -core.radius - 16, 68, 5);
       ctx.restore();
     }
   }

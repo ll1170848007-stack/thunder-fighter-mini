@@ -1,8 +1,8 @@
-import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-logic-safety-fix";
+import { Bullet } from "./bullets.js?v=20260605-ui-balance-synergy";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-ui-balance-synergy";
 
 const TYPES = {
-  scout: { hp: 3, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 0, sprite: "enemyScoutSprite", size: 62, pattern: "drift", minY: 72, maxY: 150 },
+  scout: { hp: 3, speed: 78, score: 80, radius: 17, color: "#ff4fa3", fire: 4.2, sprite: "enemyScoutSprite", size: 62, pattern: "drift", minY: 72, maxY: 150 },
   weaver: { hp: 4, speed: 92, score: 130, radius: 18, color: "#ff6b6b", fire: 0, sprite: "enemyWeaverSprite", size: 66, pattern: "weave", minY: 95, maxY: 185 },
   striker: { hp: 9, speed: 58, score: 220, radius: 24, color: "#ffb02e", fire: 2.65, sprite: "enemyStrikerSprite", size: 76, pattern: "patrol", minY: 90, maxY: 210 },
   sentry: { hp: 12, speed: 44, score: 280, radius: 24, color: "#69f1ff", fire: 2.25, sprite: "enemySentrySprite", size: 74, pattern: "sentry", minY: 105, maxY: 235 },
@@ -170,6 +170,11 @@ export class Enemy {
   }
 
   fire() {
+    if (this.type === "scout") {
+      if (this.game.stageTime < 20 || Math.random() > 0.3) return;
+      this.fireAtAngle(this.angleToPlayer(), 72, "#ff5a4f", 4.4);
+      return;
+    }
     if (this.type === "laser") {
       this.laserX = clamp(this.game.player.x + rand(-22, 22), 24, this.game.width - 24);
       this.laserWarmup = 0.82;

@@ -1,5 +1,5 @@
-import { Particle } from "./particles.js?v=20260605-logic-safety-fix";
-import { clamp, distanceSq, rand } from "./utils.js?v=20260605-logic-safety-fix";
+import { Particle } from "./particles.js?v=20260605-ui-balance-synergy";
+import { clamp, distanceSq, rand } from "./utils.js?v=20260605-ui-balance-synergy";
 
 export const ESSENCE_TYPES = {
   blue: { label: "蓝色精华", xp: 1, color: "#69f1ff", edge: "#d9fbff", radius: 7, magnetSpeed: 390, glow: 8, drift: 8 },
@@ -37,7 +37,7 @@ export class Essence {
     this.phase += dt * 5.5;
     const player = game.player;
     const pickupRadius = player?.pickupRadius ?? 28;
-    const wingBonus = (game.wingmen?.length ?? 0) * (game.upgrades?.wingmanPickupBonus ?? 0);
+    const wingBonus = (game.wingmen?.length ?? 0) * ((game.upgrades?.wingmanPickupBonus ?? 0) + (game.upgrades?.synergyWingmanPickupBonus ?? 0));
     const attractRadius = pickupRadius + (game.upgrades?.essenceMagnetBonus ?? 0) + (game.globalEssenceMagnetBonus?.() ?? 0) + wingBonus + 56;
     this.magnetized = false;
     if (player && distanceSq(this, player) < attractRadius * attractRadius) {

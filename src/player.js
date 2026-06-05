@@ -1,10 +1,11 @@
-import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
-import { hitSpark, Particle, shockwave } from "./particles.js?v=20260605-logic-safety-fix";
-import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260605-logic-safety-fix";
-import { clamp, distanceSq } from "./utils.js?v=20260605-logic-safety-fix";
+import { Bullet } from "./bullets.js?v=20260605-ui-balance-synergy";
+import { hitSpark, Particle, shockwave } from "./particles.js?v=20260605-ui-balance-synergy";
+import { SHIPS, DEFAULT_SHIP_ID } from "./stages.js?v=20260605-ui-balance-synergy";
+import { clamp, distanceSq } from "./utils.js?v=20260605-ui-balance-synergy";
 
 const SOLAR_MODES = ["guard", "spread", "recall"];
-const SOLAR_LABELS = { guard: "Guard", spread: "Spread", recall: "Recall" };
+const SOLAR_LABELS = { guard: "护卫", spread: "展开", recall: "回收" };
+const SOLAR_HINTS = { guard: "挡弹", spread: "清怪", recall: "爆发护盾" };
 
 export class Player {
   constructor(game) {
@@ -110,6 +111,7 @@ export class Player {
     if (this.ship.id === "crimson") delay *= 1.55;
     if (this.ship.id === "frost") delay *= Math.max(0.84, 1 - Math.min(8, this.frostCombo) * 0.018);
     delay *= this.upgrades.fireRateMultiplier ?? 1;
+    if (this.upgrades.synergyKillFireRate && (this.game.killStreakTimer ?? 0) > 0) delay *= Math.max(0.78, 1 - (this.game.killStreakStacks ?? 0) * 0.035);
     if ((this.game.enemyBullets?.length ?? 0) > this.game.enemyBulletLimit?.() * 0.55) delay *= Math.max(0.82, 1 - (this.upgrades.pressureFireRate ?? 0));
     if (this.lives <= Math.ceil(this.maxLives * 0.4)) delay *= Math.max(0.7, 1 - (this.upgrades.lowLifeFireRate ?? 0));
     return Math.max(0.12, delay);
@@ -357,17 +359,21 @@ export class Player {
     if (this.coreCooldown > 0) return false;
     this.solarModeIndex = (this.solarModeIndex + 1) % SOLAR_MODES.length;
     if (this.solarMode === "recall") {
-      this.solarRecallPulse = 0.42;
-      this.shield = Math.max(this.shield, 0.8 + (this.upgrades.solarRecallShieldBonus ?? 0) + (this.upgrades.shieldBonus ?? 0));
-      shockwave(this.game, this.x, this.y, 78, "#ffd86a", 0.3);
+      this.solarRecallPulse = 0.56;
+      this.shield = Math.max(this.shield, 1.15 + (this.upgrades.solarRecallShieldBonus ?? 0) + (this.upgrades.shieldBonus ?? 0));
+      shockwave(this.game, this.x, this.y, 102, "#ffd86a", 0.34);
     }
     this.startCoreCooldown(0.38);
-    this.game.toast(`羽刃 ${SOLAR_LABELS[this.solarMode]}`, 0.85);
+    this.game.toast(`羽刃模式：${this.solarModeLabel()}，${SOLAR_HINTS[this.solarMode]}`, 0.85);
     return true;
   }
 
   get solarMode() {
     return SOLAR_MODES[this.solarModeIndex] ?? "guard";
+  }
+
+  solarModeLabel() {
+    return SOLAR_LABELS[this.solarMode] ?? "护卫";
   }
 
   solarBladeCount() {
@@ -403,8 +409,8 @@ export class Player {
     this.solarRecallPulse = Math.max(0, this.solarRecallPulse - dt);
     const mode = this.solarMode;
     const blades = this.solarBladePositions();
-    const bladeRadius = mode === "spread" ? 19 : mode === "recall" ? 23 : 16;
-    const damage = (mode === "spread" ? 0.92 + (this.upgrades.solarSpreadSeek ?? 0) * 0.12 : mode === "recall" ? 0.95 : 0.48) * (this.upgrades.solarStorm ? 1.18 : 1) * (this.upgrades.solarBladeDamageMultiplier ?? 1);
+    const bladeRadius = mode === "spread" ? 23 : mode === "recall" ? 25 : 16;
+    const damage = (mode === "spread" ? 1.12 + (this.upgrades.solarSpreadSeek ?? 0) * 0.15 : mode === "recall" ? 1.18 : 0.46) * (this.upgrades.solarStorm ? 1.18 : 1) * (this.upgrades.solarBladeDamageMultiplier ?? 1);
     const targets = this.game.boss ? [...this.game.enemies, this.game.boss] : this.game.enemies;
 
     for (const target of targets) {
@@ -416,16 +422,16 @@ export class Player {
         if (distanceSq(blade, target) <= r * r) {
           target.solarBladeCooldown = 0.18;
           this.game.damageTarget(target, damage, "#ffd86a", { direct: true });
-          if (mode === "spread" && this.upgrades.solarSpreadSeek > 0) {
+          if (mode === "spread") {
             const next = this.nearestEnemy(target, new Set([target]));
-            if (next) this.game.damageTarget(next, damage * 0.42, "#fff3a8", { direct: true });
+            if (next) this.game.damageTarget(next, damage * (0.38 + Math.min(0.22, (this.upgrades.solarSpreadSeek ?? 0) * 0.06)), "#fff3a8", { direct: true });
           }
           break;
         }
       }
     }
 
-    const clearRange = mode === "guard" ? 28 : mode === "recall" ? 42 : 16;
+    const clearRange = mode === "guard" ? 34 + (this.game.boss?.shieldCore ? 10 : 0) : mode === "recall" ? 54 : 14;
     for (const bullet of this.game.enemyBullets) {
       if (bullet.dead) continue;
       for (const blade of blades) {
@@ -595,13 +601,13 @@ export class Player {
     }
     if (this.ship.id === "solar") {
       return {
-        label: `Solar Mode: ${SOLAR_LABELS[this.solarMode]}`,
+        label: `羽刃模式：${this.solarModeLabel()} / ${SOLAR_HINTS[this.solarMode]}`,
         value: this.coreCooldown > 0 ? 1 - this.coreCooldown / Math.max(0.1, this.coreCooldownMax) : 1,
         color: "#ffd86a",
       };
     }
     return {
-      label: this.voidCooldown > 0 ? `相位 ${this.voidCooldown.toFixed(1)}s / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%` : `相位 READY / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%`,
+      label: this.voidCooldown > 0 ? `相位 ${this.voidCooldown.toFixed(1)}s / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%` : `相位就绪 / 闪避 ${Math.round(this.currentDodgeChance() * 100)}%`,
       value: this.voidCooldown > 0 ? 1 - this.voidCooldown / Math.max(0.1, this.voidCooldownMax) : 1,
       color: "#b56cff",
     };

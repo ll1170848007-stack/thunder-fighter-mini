@@ -1,13 +1,13 @@
-import { rand } from "./utils.js?v=20260605-logic-safety-fix";
+import { rand } from "./utils.js?v=20260605-ui-balance-synergy";
 
 export const POWERUP_TYPES = {
-  power: { label: "火力", color: "#69f1ff", sprite: "power" },
-  shield: { label: "护盾", color: "#ffca4f", sprite: "shield" },
-  life: { label: "生命", color: "#8cff5a", sprite: "life" },
-  bomb: { label: "炸弹", color: "#fff3a8", sprite: "bomb" },
-  wing_attack: { label: "脉冲僚机", color: "#69f1ff", sprite: "wingAttack", wingman: "attack" },
-  wing_guard: { label: "护卫僚机", color: "#ffca4f", sprite: "wingGuard", wingman: "guard" },
-  wing_laser: { label: "棱镜僚机", color: "#d05cff", sprite: "wingLaser", wingman: "laser" },
+  power: { label: "\u706b\u529b", color: "#69f1ff", sprite: "power" },
+  shield: { label: "\u62a4\u76fe", color: "#ffca4f", sprite: "shield" },
+  life: { label: "\u751f\u547d", color: "#8cff5a", sprite: "life" },
+  bomb: { label: "\u70b8\u5f39", color: "#fff3a8", sprite: "bomb" },
+  wing_attack: { label: "\u8109\u51b2\u50da\u673a", color: "#69f1ff", sprite: "wingAttack", wingman: "attack" },
+  wing_guard: { label: "\u62a4\u536b\u50da\u673a", color: "#ffca4f", sprite: "wingGuard", wingman: "guard" },
+  wing_laser: { label: "\u68f1\u955c\u50da\u673a", color: "#d05cff", sprite: "wingLaser", wingman: "laser" },
 };
 
 const DEBUG_POWERUP_HITBOX = false;

@@ -92,7 +92,7 @@ export const STAGES = [
     bossScore: 3200,
     bossColor: "#ff4fa3",
     maxEnemies: 7,
-    warning: "WARNING / 赤潮巡洋舰接近",
+    warning: "首领警报 / 赤潮巡洋舰接近",
   },
   {
     name: "第二关 星尘裂谷",
@@ -102,7 +102,7 @@ export const STAGES = [
     bossScore: 4500,
     bossColor: "#b98cff",
     maxEnemies: 9,
-    warning: "WARNING / 紫电圣甲展开",
+    warning: "首领警报 / 紫电圣甲展开",
   },
   {
     name: "第三关 深空王座",
@@ -112,7 +112,7 @@ export const STAGES = [
     bossScore: 6800,
     bossColor: "#ff3d3d",
     maxEnemies: 11,
-    warning: "WARNING / 黑曜母舰锁定",
+    warning: "首领警报 / 黑曜母舰锁定",
   },
 ];
 

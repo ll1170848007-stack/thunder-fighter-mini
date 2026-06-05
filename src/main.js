@@ -1,4 +1,4 @@
-import { Game } from "./game.js?v=20260605-logic-safety-fix";
+import { Game } from "./game.js?v=20260605-ui-balance-synergy";
 
 document.body.dataset.appReady = "booting";
 

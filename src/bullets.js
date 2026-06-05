@@ -269,23 +269,30 @@ export class Bullet {
   drawEnemyOrb(ctx) {
     const pulse = 1 + Math.sin(this.age * 18) * 0.08;
     const r = (this.beam ? this.radius * 1.45 : this.radius) * pulse;
-    const glow = this.destructible ? r * 2.25 : r * 1.55;
+    const glow = this.destructible ? r * 2.45 : r * 1.85;
+    const coreColor = this.destructible ? "#ffb02e" : this.color || "#ff5a4f";
     ctx.save();
-    ctx.globalAlpha = this.destructible ? 0.46 : 0.28;
-    ctx.fillStyle = this.destructible ? "rgba(255,176,46,0.42)" : "rgba(255,75,85,0.35)";
+    ctx.globalAlpha = this.destructible ? 0.58 : 0.48;
+    ctx.fillStyle = this.destructible ? "rgba(255,176,46,0.46)" : "rgba(255,90,79,0.42)";
     ctx.beginPath();
     ctx.arc(this.x, this.y, glow, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.shadowColor = this.color;
-    ctx.shadowBlur = this.destructible ? 10 : 4;
-    ctx.fillStyle = this.destructible ? "#ff9b32" : this.color;
+    ctx.shadowColor = coreColor;
+    ctx.shadowBlur = this.destructible ? 11 : 7;
+    ctx.fillStyle = coreColor;
     ctx.beginPath();
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 0.78;
+    ctx.fillStyle = "#fff7e8";
+    ctx.beginPath();
+    ctx.arc(this.x - r * 0.28, this.y - r * 0.32, Math.max(1.6, r * 0.28), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = this.destructible ? "rgba(255,255,255,0.78)" : "rgba(70,12,20,0.9)";
-    ctx.lineWidth = this.destructible ? 1.8 : 1.1;
+    ctx.strokeStyle = this.destructible ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.72)";
+    ctx.lineWidth = this.destructible ? 1.9 : 1.35;
     ctx.stroke();
     if (this.destructible) {
       ctx.globalAlpha = 0.7;

@@ -1,7 +1,7 @@
 export const RARITY = {
-  blue: { label: "蓝卡", color: "#69f1ff" },
-  purple: { label: "紫卡", color: "#b56cff" },
-  red: { label: "红卡", color: "#ff4b55" },
+  blue: { label: "\u84dd\u5361", color: "#69f1ff" },
+  purple: { label: "\u7d2b\u5361", color: "#b56cff" },
+  red: { label: "\u7ea2\u5361", color: "#ff4b55" },
 };
 
 const wingTypes = ["attack", "guard", "laser"];
@@ -90,10 +90,10 @@ export const UPGRADE_CARDS = [
 
   { id: "solar_blade", title: "羽刃增殖", desc: "羽刃数量 +1。", rarity: "blue", ship: "solar", tags: ["solar"], maxStacks: 4, starter: true, apply: (game) => boost(game, "solarBladeBonus", 1) },
   { id: "solar_blade_damage", title: "金羽淬锋", desc: "羽刃伤害 +10%。", rarity: "blue", ship: "solar", tags: ["solar", "damage"], maxStacks: 4, apply: (game) => mult(game, "solarBladeDamageMultiplier", 1.1) },
-  { id: "solar_spread_seek", title: "金羽追猎", desc: "Spread 模式自动补刀能力提升。", rarity: "purple", ship: "solar", tags: ["solar", "aoe"], maxStacks: 3, apply: (game) => boost(game, "solarSpreadSeek", 1) },
-  { id: "solar_recall_shield", title: "圣翼回护", desc: "Recall 模式护盾更久。", rarity: "purple", ship: "solar", tags: ["solar", "shield"], maxStacks: 3, apply: (game) => boost(game, "solarRecallShieldBonus", 0.75) },
-  { id: "solar_storm", title: "金羽风暴", desc: "Spread 模式伤害和精华掉落提高。", rarity: "red", ship: "solar", tags: ["solar", "essence"], maxStacks: 1, apply: (game) => { game.upgrades.solarStorm = true; } },
-  { id: "solar_domain", title: "圣翼领域", desc: "Guard 模式更容易清理可摧毁弹幕。", rarity: "red", ship: "solar", tags: ["solar", "bullet"], maxStacks: 1, apply: (game) => boost(game, "solarGuardBreaker", 1) },
+  { id: "solar_spread_seek", title: "金羽追猎", desc: "展开模式自动补刀能力提升。", rarity: "purple", ship: "solar", tags: ["solar", "aoe"], maxStacks: 3, apply: (game) => boost(game, "solarSpreadSeek", 1) },
+  { id: "solar_recall_shield", title: "圣翼回护", desc: "回收模式护盾更久。", rarity: "purple", ship: "solar", tags: ["solar", "shield"], maxStacks: 3, apply: (game) => boost(game, "solarRecallShieldBonus", 0.75) },
+  { id: "solar_storm", title: "金羽风暴", desc: "展开模式伤害和精华掉落提高。", rarity: "red", ship: "solar", tags: ["solar", "essence"], maxStacks: 1, apply: (game) => { game.upgrades.solarStorm = true; } },
+  { id: "solar_domain", title: "圣翼领域", desc: "护卫模式更容易清理可摧毁弹幕。", rarity: "red", ship: "solar", tags: ["solar", "bullet"], maxStacks: 1, apply: (game) => boost(game, "solarGuardBreaker", 1) },
   { id: "solar_spin", title: "羽刃转速", desc: "羽刃转速和命中节奏提高。", rarity: "purple", ship: "solar", tags: ["solar", "fireRate"], maxStacks: 3, apply: (game) => boost(game, "solarBladeSpeedBonus", 0.12) },
 
   { id: "void_dodge", title: "暗影闪避", desc: "闪避率 +5%。", rarity: "blue", ship: "void", tags: ["void", "survival"], maxStacks: 6, starter: true, apply: (game) => { game.upgrades.voidDodgeChance = Math.min(0.56, game.upgrades.voidDodgeChance + 0.05); } },

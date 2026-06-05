@@ -1,5 +1,5 @@
-import { Bullet } from "./bullets.js?v=20260605-logic-safety-fix";
-import { Particle, hitSpark } from "./particles.js?v=20260605-logic-safety-fix";
+import { Bullet } from "./bullets.js?v=20260605-ui-balance-synergy";
+import { Particle, hitSpark } from "./particles.js?v=20260605-ui-balance-synergy";
 
 export const WINGMAN_INFO = {
   attack: {
